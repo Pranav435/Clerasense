@@ -109,10 +109,14 @@ const API = (() => {
     }
 
     // ── Chat ──
-    async function chat(query) {
+    async function chat(query, conversationHistory) {
+        const payload = { query };
+        if (conversationHistory && conversationHistory.length) {
+            payload.conversation_history = conversationHistory;
+        }
         return request('/chat/', {
             method: 'POST',
-            body: JSON.stringify({ query }),
+            body: JSON.stringify(payload),
         });
     }
 

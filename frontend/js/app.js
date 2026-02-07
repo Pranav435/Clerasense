@@ -4,13 +4,12 @@
  */
 
 const App = (() => {
-    let currentModule = 'chat';
+    let currentModule = 'druginfo';
 
     const modules = {
-        chat: ChatModule,
-        comparison: ComparisonModule,
+        druginfo: DrugInfoModule,
+        askmore: AskMoreModule,
         safety: SafetyModule,
-        pricing: PricingModule,
     };
 
     function init() {
@@ -69,20 +68,19 @@ const App = (() => {
             const q = input.value.trim();
             if (!q) return;
 
-            // Switch to chat and send the query
-            currentModule = 'chat';
+            // Switch to Drug Information and fill the search
+            currentModule = 'druginfo';
             document.querySelectorAll('.sidebar-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.module === 'chat');
+                b.classList.toggle('active', b.dataset.module === 'druginfo');
             });
-            ChatModule.reset();
-            renderModule('chat');
+            renderModule('druginfo');
 
-            // Simulate sending the search as a chat message after render
+            // Fill the drug-info search input and trigger lookup
             setTimeout(() => {
-                const chatInput = document.getElementById('chat-input');
-                if (chatInput) {
-                    chatInput.value = q;
-                    document.getElementById('chat-send').click();
+                const drugInput = document.getElementById('druginfo-input');
+                if (drugInput) {
+                    drugInput.value = q;
+                    document.getElementById('druginfo-search-btn').click();
                     input.value = '';
                 }
             }, 100);

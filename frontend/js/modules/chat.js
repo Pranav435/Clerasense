@@ -1,17 +1,18 @@
 /**
- * Clerasense – Drug Info Chat Module
- * Natural language drug information chat with RAG-backed responses.
+ * Clerasense – Ask More (Chat) Module
+ * Natural language chatbot for follow-up drug queries,
+ * pricing questions, comparisons, and general drug intelligence.
  */
 
-const ChatModule = (() => {
+const AskMoreModule = (() => {
     let messages = [];
 
     function render(container) {
         container.innerHTML = `
             <div class="chat-container">
                 <div class="chat-header">
-                    <h2>Drug Information Chat</h2>
-                    <p>Ask about drug indications, dosages, safety profiles, interactions, and more.
+                    <h2>Ask More</h2>
+                    <p>Ask follow-up questions about drugs — pricing, interactions, comparisons, or anything else.
                        All answers are sourced from verified regulatory data.</p>
                 </div>
                 <div class="disclaimer-banner">
@@ -21,7 +22,7 @@ const ChatModule = (() => {
                 <div class="chat-messages" id="chat-messages"></div>
                 <div class="chat-input-area">
                     <input type="text" id="chat-input"
-                           placeholder="e.g., What are the contraindications for Metformin?"
+                           placeholder="e.g., What is the price of Metformin? Compare Lisinopril vs Losartan."
                            autocomplete="off">
                     <button id="chat-send" class="btn btn-primary" style="width:auto;">Send</button>
                 </div>
@@ -49,7 +50,13 @@ const ChatModule = (() => {
         // Show loading
         const loadingId = addMessage('assistant', '<div class="loading">Retrieving information…</div>');
 
-        const data = await API.chat(query);
+        // Build conversation history for context (exclude the loading message)
+        const history = messages
+            .filter(m => m.id !== loadingId && (m.type === 'user' || m.type === 'assistant'))
+            .slice(-20)  // keep last 20 messages for context window
+            .map(m => ({ role: m.type === 'user' ? 'user' : 'assistant', content: m.rawContent || stripHtml(m.content) }));
+
+        const data = await API.chat(query, history);
 
         removeMessage(loadingId);
 
@@ -59,9 +66,9 @@ const ChatModule = (() => {
         }
 
         if (data.refused) {
-            addMessage('refusal', data.response);
+            addMessage('refusal', data.response, data.response);
         } else {
-            addMessage('assistant', formatResponse(data.response));
+            addMessage('assistant', formatResponse(data.response), data.response);
             updateContextPanel(data.sources || []);
         }
     }
@@ -75,9 +82,15 @@ const ChatModule = (() => {
             .replace(/\[Source: (.*?)\]/g, '<span class="source-citation">📄 $1</span>');
     }
 
-    function addMessage(type, content) {
+    function stripHtml(html) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
+    }
+
+    function addMessage(type, content, rawContent) {
         const id = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
-        messages.push({ id, type, content });
+        messages.push({ id, type, content, rawContent: rawContent || null });
         renderMessages();
         return id;
     }
@@ -94,11 +107,11 @@ const ChatModule = (() => {
         if (messages.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <h3>Drug Information Assistant</h3>
-                    <p>Ask about any drug's approved uses, dosage guidelines, safety warnings,
-                       drug interactions, or regulatory information.</p>
+                    <h3>Ask More — Drug Intelligence Chatbot</h3>
+                    <p>Ask follow-up questions about drug pricing, comparisons, interactions,
+                       dosage adjustments, or any pharmacy-related query.</p>
                     <p style="margin-top:12px;font-size:12px;color:var(--text-muted);">
-                        Example: "What are the safety warnings for Atorvastatin?"
+                        Examples: "What is the cost of Atorvastatin?"  •  "Compare Metformin vs Glipizide"
                     </p>
                 </div>
             `;

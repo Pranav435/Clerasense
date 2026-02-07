@@ -53,15 +53,18 @@ Structure your response with these sections as applicable:
 If the query doesn't relate to the retrieved drugs, state that clearly."""
 
 
-def generate_rag_response(query: str, intent: str) -> dict:
+def generate_rag_response(query: str, intent: str, conversation_history: list | None = None) -> dict:
     """
     Full RAG pipeline:
       1. Retrieve relevant drug data from DB
       2. If nothing found → return "not available" without calling LLM
       3. Build context from retrieved data
-      4. Call LLM to summarize with citations
+      4. Call LLM to summarize with citations (includes conversation history)
       5. Collect and return sources
     """
+    if conversation_history is None:
+        conversation_history = []
+
     # Step 1: Retrieve
     retrieved = retrieve_drugs(query)
 
@@ -81,20 +84,30 @@ def generate_rag_response(query: str, intent: str) -> dict:
     context_text = _build_context(retrieved)
     all_sources = _collect_sources(retrieved)
 
-    # Step 4: Call LLM with strict system prompt + retrieved context
+    # Step 4: Call LLM with strict system prompt + conversation history + retrieved context
     try:
         client = _get_client()
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"RETRIEVED CONTEXT (only use this data):\n\n{context_text}\n\n"
-                    f"---\nDoctor's query: {query}\n\n"
-                    "Provide a structured, source-cited response using ONLY the retrieved context above."
-                ),
-            },
         ]
+
+        # Add conversation history for follow-up context (trimmed)
+        for msg in conversation_history[:-1]:  # exclude the current query (already in user msg below)
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role in ("user", "assistant") and content:
+                # Truncate old messages to save tokens
+                messages.append({"role": role, "content": content[:1500]})
+
+        messages.append({
+            "role": "user",
+            "content": (
+                f"RETRIEVED CONTEXT (only use this data):\n\n{context_text}\n\n"
+                f"---\nDoctor's query: {query}\n\n"
+                "Provide a structured, source-cited response using ONLY the retrieved context above. "
+                "If this is a follow-up question, use the conversation history above for context."
+            ),
+        })
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",

@@ -221,6 +221,366 @@
     margin: 0 auto;
 }
 
+/* ── Drug Information Module ── */
+.druginfo-container {
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+.druginfo-search {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+}
+
+.druginfo-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.druginfo-header-card {
+    border-left: 4px solid var(--accent);
+}
+
+.druginfo-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.druginfo-drug-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.druginfo-brands {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.druginfo-class-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.druginfo-mechanism {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.druginfo-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 14px 0;
+    color: var(--text-primary);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.druginfo-subsection-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 16px 0 10px 0;
+    color: var(--text-primary);
+}
+
+.druginfo-item {
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+    color: var(--text-secondary);
+}
+
+.druginfo-item strong {
+    color: var(--text-primary);
+}
+
+.druginfo-blackbox {
+    background: #fdedec;
+    border: 1px solid #e74c3c;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.druginfo-blackbox strong {
+    color: #c0392b;
+}
+
+/* Dosage grid */
+.druginfo-dosage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.druginfo-dosage-cell {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+}
+
+.dosage-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
+}
+
+.dosage-value {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* Interactions list */
+.druginfo-interactions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.druginfo-interaction-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+}
+
+.interaction-drug {
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 120px;
+}
+
+.interaction-severity {
+    display: inline-block;
+    padding: 2px 8px;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.interaction-desc {
+    flex: 1;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* Pricing inside drug info */
+.druginfo-pricing-entry {
+    border-radius: 6px;
+    padding: 14px;
+    margin: 8px 0;
+}
+
+.druginfo-pricing-entry.nadac {
+    background: #e8f8f5;
+}
+
+.druginfo-pricing-entry.estimate {
+    background: #fef9e7;
+}
+
+.druginfo-section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.currency-select {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-family: var(--font-body);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.currency-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.currency-location-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--info-light);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    margin: 8px 0 4px;
+    line-height: 1.4;
+}
+
+.pricing-main-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.pricing-main-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pricing-main-cost {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.pricing-package {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.pricing-unit-row {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-light);
+}
+
+.pricing-orig {
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+.pricing-date {
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-left: 8px;
+}
+
+.pricing-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+.pricing-tag.govt {
+    background: #d5f5e3;
+    color: #1e8449;
+}
+
+.pricing-tag.est {
+    background: #fdebd0;
+    color: #b7950b;
+}
+
+/* FAERS section */
+.druginfo-faers {
+    margin-top: 12px;
+    padding: 10px;
+    background: #fdf2e9;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.faers-stats {
+    display: flex;
+    gap: 20px;
+    margin: 8px 0;
+    flex-wrap: wrap;
+}
+
+.faers-stat {
+    text-align: center;
+}
+
+.faers-stat-num {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.faers-stat-label {
+    font-size: 10px;
+    color: #666;
+}
+
+.faers-reactions {
+    margin-top: 6px;
+    font-size: 11px;
+}
+
+.faers-reactions ul {
+    margin: 4px 0;
+    padding-left: 18px;
+}
+
+.faers-reactions li {
+    margin: 2px 0;
+}
+
+.faers-footer {
+    font-size: 10px;
+    color: #888;
+    margin-top: 4px;
+}
+
+/* Source badge row */
+.source-badge-row {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #f8f9fa;
+    border-left: 3px solid #555;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.authority-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    color: #fff;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-right: 6px;
+}
+
 .pricing-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border);

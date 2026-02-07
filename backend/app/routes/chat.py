@@ -19,11 +19,17 @@ def drug_chat():
     """
     data = request.get_json(force=True)
     query = data.get("query", "").strip()
+    conversation_history = data.get("conversation_history", [])
 
     if not query:
         return jsonify({"error": "Query cannot be empty."}), 400
     if len(query) > 1000:
         return jsonify({"error": "Query too long (max 1000 characters)."}), 400
+
+    # Validate and trim conversation history (max 20 turns)
+    if not isinstance(conversation_history, list):
+        conversation_history = []
+    conversation_history = conversation_history[-20:]
 
     # 1. Intent classification
     intent = classify_intent(query)
@@ -41,7 +47,7 @@ def drug_chat():
         }), 200
 
     # 3. RAG pipeline: retrieve → context → LLM summarize → cite
-    rag_result = generate_rag_response(query, intent)
+    rag_result = generate_rag_response(query, intent, conversation_history=conversation_history)
 
     return jsonify({
         "refused": False,
