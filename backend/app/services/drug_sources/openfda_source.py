@@ -217,15 +217,15 @@ class OpenFDASource(DrugDataSource):
             for gn in gen_names:
                 is_combo = " and " in gn or "/" in gn or "," in gn
                 if gn == name_lower:
-                    score += 200  # Perfect single-ingredient match
+                    score += 300  # Perfect single-ingredient match
                 elif gn == f"{name_lower} hydrochloride" or gn == f"{name_lower} hcl":
-                    score += 190  # Salt form exact match
+                    score += 280  # Salt form exact match
                 elif gn.startswith(name_lower) and not is_combo:
-                    score += 150  # e.g., "metformin hydrochloride extended-release"
+                    score += 200  # e.g., "metformin hydrochloride extended-release"
                 elif name_lower in gn and not is_combo:
-                    score += 80  # Single ingredient containing our drug
+                    score += 100  # Single ingredient containing our drug
                 elif name_lower in gn and is_combo:
-                    score -= 50  # PENALISE combo products heavily
+                    score -= 200  # PENALISE combo products heavily
 
             # Prefer labels with more clinical fields filled
             for field_name in ["contraindications", "warnings_and_cautions", "drug_interactions",
@@ -373,13 +373,16 @@ class OpenFDASource(DrugDataSource):
         route_str = ", ".join(route).lower() if route else ""
         approximate_cost = _estimate_cost(generic_name, drug_class, route_str, generic_available)
 
-        # Build source URL — link to specific DailyMed drug page
-        spl_id = openfda.get("spl_id", [""])[0] if openfda.get("spl_id") else ""
-        if spl_id:
-            source_url = f"https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid={spl_id}"
-        else:
-            # Fallback: DailyMed search page for this drug (user-friendly)
-            source_url = f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={generic_name}"
+        # Build source URL — DailyMed search page (always works).
+        # NOTE: We intentionally do NOT use openfda.spl_id here because those
+        # set-id values are frequently stale/expired and redirect to the
+        # DailyMed homepage.  The verification service will upgrade this to a
+        # direct drug-page URL using the DailyMed adapter's validated setid.
+        import urllib.parse
+        source_url = (
+            "https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query="
+            + urllib.parse.quote_plus(generic_name)
+        )
 
         # Extract effective date from label
         effective_date, source_year = _parse_effective_date(label)

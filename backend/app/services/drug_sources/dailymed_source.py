@@ -121,15 +121,120 @@ class DailyMedSource(DrugDataSource):
         return list(names)[:limit]
 
     def _get_spl_setid(self, generic_name: str) -> Optional[str]:
-        """Find the SPL set_id for a drug."""
+        """
+        Find the best SPL set_id for a single-ingredient drug.
+
+        Fetches multiple results from DailyMed and scores them to prefer
+        exact single-ingredient matches over combination products, brand
+        bundles, or unrelated name collisions (e.g. hand sanitizer for
+        "ethane").
+        """
         data = self._api_get_json("v2/spls.json", {
             "drug_name": generic_name,
             "page": 1,
-            "pagesize": 1,
+            "pagesize": 25,
         })
         if not data or "data" not in data or not data["data"]:
             return None
-        return data["data"][0].get("setid")
+
+        name_lower = generic_name.lower().strip()
+        # Common salt forms that are equivalent to the base drug
+        salt_suffixes = [
+            "hydrochloride", "hcl", "sulfate", "sodium", "potassium",
+            "maleate", "besylate", "mesylate", "fumarate", "tartrate",
+            "succinate", "calcium", "acetate", "phosphate", "citrate",
+            "dihydrate", "anhydrous", "trihydrate",
+        ]
+        salt_forms = [f"{name_lower} {s}" for s in salt_suffixes]
+
+        # Dosage form keywords — commas within these are NOT combo indicators
+        dosage_forms = [
+            "tablet", "capsule", "solution", "injection", "cream",
+            "ointment", "powder", "suspension", "aerosol", "spray",
+            "patch", "gel", "drops", "inhaler", "suppository", "lozenge",
+            "syrup", "elixir", "emulsion", "pellet", "granule", "kit",
+        ]
+        # Words that signal the product is NOT a pharmaceutical drug
+        non_drug_words = [
+            "sanitizer", "hand wash", "antiseptic", "disinfectant",
+            "cleaning", "cosmetic", "sunscreen", "soap", "shampoo",
+            "toothpaste", "mouthwash", "deodorant",
+        ]
+
+        best_setid = None
+        best_score = -9999
+
+        for item in data["data"]:
+            title = (item.get("title") or "").strip()
+            title_lower = title.lower()
+            setid = item.get("setid")
+            if not setid:
+                continue
+
+            score = 0
+
+            # ---- Disqualify non-pharmaceutical products ----
+            if any(nw in title_lower for nw in non_drug_words):
+                score -= 500
+
+            # ---- Extract the drug-name portion ----
+            # DailyMed title formats:
+            #   "DRUG NAME- dosage form [MANUFACTURER]"
+            #   "DRUG NAME SALT FORM TABLET, FILM COATED [MANUFACTURER]"
+            # First split off manufacturer bracket
+            mfr_split = re.split(r"\s*\[", title_lower, maxsplit=1)
+            name_and_form = mfr_split[0].strip()
+
+            # Split off dash-separated dosage description
+            dash_parts = re.split(r"\s*[-–]\s*", name_and_form, maxsplit=1)
+            drug_portion = dash_parts[0].strip()
+
+            # Further isolate the drug name from dosage form words
+            # e.g., "atorvastatin calcium tablet" -> "atorvastatin calcium"
+            drug_name_part = drug_portion
+            for df in dosage_forms:
+                idx = drug_name_part.find(df)
+                if idx > 0:
+                    drug_name_part = drug_name_part[:idx].strip().rstrip(",").strip()
+                    break
+
+            # ---- Check for combination in the drug name portion only ----
+            # "and" or "/" in the drug NAME part (not dosage) = combination
+            is_combo = (" and " in drug_name_part or " / " in drug_name_part
+                        or ("," in drug_name_part
+                            and not any(s in drug_name_part for s in salt_suffixes)))
+
+            # ---- Scoring ----
+            if drug_name_part == name_lower:
+                score += 300   # Perfect single-ingredient match
+            elif drug_name_part in salt_forms:
+                score += 280   # Salt form exact match
+            elif drug_name_part.startswith(name_lower) and not is_combo:
+                # e.g., "atorvastatin calcium" when searching "atorvastatin"
+                score += 260
+            elif name_lower in drug_name_part and not is_combo:
+                score += 100   # Name appears within drug portion
+            elif name_lower in drug_name_part and is_combo:
+                score -= 100   # Combo product containing our drug
+            elif name_lower not in title_lower:
+                score -= 300   # Drug name doesn't even appear in title
+
+            # Heavy penalty for combos
+            if is_combo:
+                score -= 200
+
+            # Prefer shorter titles (less likely to be complex products)
+            if len(title) < 80:
+                score += 10
+            elif len(title) > 140:
+                score -= 10
+
+            if score > best_score:
+                best_score = score
+                best_setid = setid
+
+        # Only return if the best match actually seems relevant
+        return best_setid if best_score > -200 else None
 
     def _fetch_spl_xml_sections(self, setid: str) -> dict[str, str]:
         """

@@ -27,6 +27,9 @@ AGREEMENT_THRESHOLD = 0.35
 # Minimum number of sources that must provide data for a drug
 MIN_SOURCES_REQUIRED = 2
 
+# Minimum confidence for a drug to be accepted for ingestion
+MIN_CONFIDENCE_THRESHOLD = 0.15
+
 # Authoritative drug-class overrides for commonly misclassified drugs.
 # APIs sometimes return a combo-product class even for single-ingredient
 # queries.  These mappings ensure the correct pharmacologic class.
@@ -90,6 +93,66 @@ def _merge_lists(*lists: list) -> list:
     return result
 
 
+def _is_pharmaceutical_drug(source_data: list[NormalizedDrugData]) -> tuple[bool, str]:
+    """
+    Determine whether the fetched data actually describes a pharmaceutical drug
+    rather than a non-drug product (hand sanitizer, cosmetic, supplement, etc.).
+
+    A real drug will have at least one of: indication, mechanism of action,
+    drug class, or dosage information from an authoritative source.
+
+    Returns (is_drug, reason).
+    """
+    has_indication = any(
+        d.indications for d in source_data if d.indications
+    )
+    has_mechanism = any(
+        d.mechanism_of_action and len(d.mechanism_of_action.strip()) > 20
+        for d in source_data
+    )
+    has_drug_class = any(
+        d.drug_class and d.drug_class.strip()
+        and d.drug_class.lower() not in ("unknown", "other", "")
+        for d in source_data
+    )
+    has_dosage = any(
+        d.adult_dosage and len(d.adult_dosage.strip()) > 10
+        for d in source_data
+    )
+    has_contraindications = any(
+        d.contraindications and len(d.contraindications.strip()) > 20
+        for d in source_data
+    )
+
+    # A pharmaceutical drug must have at least ONE clinical property
+    clinical_signals = sum([
+        has_indication, has_mechanism, has_drug_class,
+        has_dosage, has_contraindications,
+    ])
+
+    if clinical_signals >= 1:
+        return True, ""
+
+    # Check if it looks like a non-drug product
+    non_drug_keywords = [
+        "sanitizer", "hand wash", "antiseptic", "disinfectant",
+        "cleaning", "cosmetic", "sunscreen", "soap", "shampoo",
+        "toothpaste", "mouthwash", "deodorant", "supplement",
+        "homeopathic",
+    ]
+    all_titles = " ".join(
+        (d.source_document_title or "").lower() for d in source_data
+    )
+    for kw in non_drug_keywords:
+        if kw in all_titles:
+            return False, f"Product appears to be a non-drug item (matched '{kw}')"
+
+    return False, (
+        "No clinical data found (no indications, mechanism, drug class, "
+        "dosage, or contraindications). This may not be a pharmaceutical drug."
+    )
+
+
 def _merge_interactions(*interaction_lists: list[dict]) -> list[dict]:
     """
     Union-merge interactions across sources.
@@ -143,6 +206,15 @@ def verify_drug_data(
     valid_data = [d for d in source_data if d is not None]
     result.sources_used = [d.source_authority for d in valid_data]
     result.all_source_urls = {d.source_authority: d.source_url for d in valid_data if d.source_url}
+
+    # --- Check if this is actually a pharmaceutical drug ---
+    is_drug, rejection_reason = _is_pharmaceutical_drug(valid_data)
+    if not is_drug:
+        result.notes.append(
+            f"Rejected '{drug_name}': {rejection_reason}"
+        )
+        logger.info("Rejected '%s' as non-pharmaceutical: %s", drug_name, rejection_reason)
+        return result  # verified stays False
 
     if len(valid_data) < MIN_SOURCES_REQUIRED:
         result.notes.append(
@@ -286,10 +358,17 @@ def verify_drug_data(
     fda_source = next((d for d in valid_data if d.source_authority == "FDA"), valid_data[0])
     merged.source_authority = fda_source.source_authority
     merged.source_document_title = fda_source.source_document_title
-    merged.source_url = fda_source.source_url
     merged.source_year = fda_source.source_year
     merged.effective_date = fda_source.effective_date
     merged.data_retrieved_at = fda_source.data_retrieved_at
+
+    # Source URL: prefer DailyMed adapter's validated direct URL (setid-based)
+    # over OpenFDA's URL, because OpenFDA spl_id values are often stale.
+    dailymed_source = next((d for d in valid_data if d.source_authority == "NIH/NLM"), None)
+    if dailymed_source and dailymed_source.source_url and "setid=" in dailymed_source.source_url:
+        merged.source_url = dailymed_source.source_url
+    else:
+        merged.source_url = fda_source.source_url
 
     # --- Calculate confidence score ---
     confidence = 0.0
@@ -315,6 +394,15 @@ def verify_drug_data(
     # Deduct for conflicts
     confidence -= len(result.conflicts) * 0.05
     confidence = max(0.0, min(1.0, confidence))
+
+    # Reject if confidence is too low (likely non-pharmaceutical product)
+    if confidence < MIN_CONFIDENCE_THRESHOLD:
+        result.notes.append(
+            f"Confidence too low ({confidence:.1%}) for '{drug_name}'. "
+            "Insufficient clinical data to confirm this is a pharmaceutical drug."
+        )
+        logger.info("Rejected '%s' due to low confidence: %.1f%%", drug_name, confidence * 100)
+        return result  # verified stays False
 
     result.verified = True
     result.confidence = round(confidence, 3)
