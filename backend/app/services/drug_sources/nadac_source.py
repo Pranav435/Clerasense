@@ -119,6 +119,9 @@ def _format_cost_display(records: list[dict], generic_name: str) -> dict:
 class NADACSource(DrugDataSource):
     """Fetch real drug pricing data from CMS NADAC (Medicaid.gov)."""
 
+    def __init__(self, delay_scale: float = 1.0):
+        self.delay_scale = delay_scale
+
     @property
     def source_name(self) -> str:
         return "CMS NADAC Pricing"
@@ -130,7 +133,7 @@ class NADACSource(DrugDataSource):
     def _api_get(self, drug_name: str, limit: int = 50) -> Optional[list]:
         """Rate-limited GET to NADAC DKAN datastore API, searching by drug name."""
         try:
-            time.sleep(SEARCH_DELAY)
+            time.sleep(SEARCH_DELAY * self.delay_scale)
             params = {
                 "limit": limit,
                 "offset": 0,

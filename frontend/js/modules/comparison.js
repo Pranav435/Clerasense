@@ -1,65 +1,191 @@
 /**
  * Clerasense – Drug Comparison Module
  * Side-by-side factual comparison of 2–4 drugs.
- * No ranking. No recommendations.
+ * Each input has fuzzy autocomplete. No ranking. No recommendations.
+ * Pulls from the same verified sources as the rest of the platform.
  */
 
 const ComparisonModule = (() => {
+
+    /* ── Per-input autocomplete state ── */
+    const _acState = {};   // { inputId: { index: -1, timer: null } }
 
     function render(container) {
         container.innerHTML = `
             <div class="comparison-container">
                 <div class="chat-header">
                     <h2>Drug Comparison</h2>
-                    <p>Compare 2–4 drugs on factual parameters. No ranking or recommendation is provided.</p>
+                    <p>Compare 2–4 drugs side-by-side on factual parameters sourced from FDA, DailyMed, CMS, and FAERS.
+                       No drug is ranked or recommended.</p>
                 </div>
                 <div class="disclaimer-banner">
-                    Comparison displays factual, source-backed data only. No drug is ranked as "better" or "preferred."
+                    ⚠️ Comparison displays factual, source-backed data only. No drug is ranked as "better" or "preferred."
                     Clinical decision-making must consider patient-specific factors.
                 </div>
-                <div class="comparison-input">
-                    <div class="form-group">
-                        <label>Drug 1</label>
-                        <input type="text" id="cmp-drug-1" placeholder="e.g., Metformin">
-                    </div>
-                    <div class="form-group">
-                        <label>Drug 2</label>
-                        <input type="text" id="cmp-drug-2" placeholder="e.g., Lisinopril">
-                    </div>
-                    <div class="form-group">
-                        <label>Drug 3 (optional)</label>
-                        <input type="text" id="cmp-drug-3" placeholder="e.g., Atorvastatin">
-                    </div>
-                    <div class="form-group">
-                        <label>Drug 4 (optional)</label>
-                        <input type="text" id="cmp-drug-4" placeholder="">
-                    </div>
-                    <button id="cmp-compare-btn" class="btn btn-primary" style="width:auto;height:42px;align-self:flex-end;">
-                        Compare
+                <div class="cmp-inputs">
+                    ${_renderInputSlot(1, 'e.g., Metformin', true)}
+                    ${_renderInputSlot(2, 'e.g., Lisinopril', true)}
+                    ${_renderInputSlot(3, 'e.g., Atorvastatin', false)}
+                    ${_renderInputSlot(4, 'e.g., Omeprazole', false)}
+                </div>
+                <div class="cmp-actions">
+                    <button id="cmp-compare-btn" class="btn btn-primary">
+                        Compare Drugs
+                    </button>
+                    <button id="cmp-clear-btn" class="btn btn-outline btn-small" style="margin-left:8px;">
+                        Clear All
                     </button>
                 </div>
                 <div id="cmp-results"></div>
             </div>
         `;
 
+        // Bind buttons
         document.getElementById('cmp-compare-btn').addEventListener('click', runComparison);
+        document.getElementById('cmp-clear-btn').addEventListener('click', () => {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`cmp-drug-${i}`);
+                if (el) el.value = '';
+            }
+            document.getElementById('cmp-results').innerHTML = '';
+        });
+
+        // Bind autocomplete on each input
+        for (let i = 1; i <= 4; i++) {
+            _bindAutocomplete(`cmp-drug-${i}`);
+        }
+
+        // Close autocomplete on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.cmp-input-wrap')) {
+                for (let i = 1; i <= 4; i++) _hideAc(`cmp-drug-${i}`);
+            }
+        });
     }
 
+    function _renderInputSlot(n, placeholder, required) {
+        const label = required ? `Drug ${n}` : `Drug ${n} <span class="cmp-optional">(optional)</span>`;
+        return `
+            <div class="cmp-input-wrap">
+                <label>${label}</label>
+                <input type="text" id="cmp-drug-${n}" class="cmp-drug-input"
+                       placeholder="${placeholder}" autocomplete="off">
+                <ul id="cmp-ac-${n}" class="autocomplete-list cmp-ac-list"></ul>
+            </div>`;
+    }
+
+    /* ── Autocomplete per input ── */
+    function _bindAutocomplete(inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const acId = inputId.replace('cmp-drug-', 'cmp-ac-');
+        _acState[inputId] = { index: -1, timer: null };
+
+        input.addEventListener('input', () => {
+            clearTimeout(_acState[inputId].timer);
+            _acState[inputId].index = -1;
+            const q = input.value.trim();
+            if (q.length < 2) { _hideAc(inputId); return; }
+            _acState[inputId].timer = setTimeout(() => _fetchAc(inputId, q), 220);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            const acList = document.getElementById(acId);
+            const items = acList ? acList.querySelectorAll('.autocomplete-item') : [];
+            const visible = items.length > 0 && acList.style.display !== 'none';
+
+            if (e.key === 'ArrowDown' && visible) {
+                e.preventDefault();
+                _acState[inputId].index = Math.min(_acState[inputId].index + 1, items.length - 1);
+                _highlightItems(items, _acState[inputId].index);
+            } else if (e.key === 'ArrowUp' && visible) {
+                e.preventDefault();
+                _acState[inputId].index = Math.max(_acState[inputId].index - 1, 0);
+                _highlightItems(items, _acState[inputId].index);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (visible && _acState[inputId].index >= 0 && items[_acState[inputId].index]) {
+                    input.value = items[_acState[inputId].index].dataset.name;
+                    _hideAc(inputId);
+                } else {
+                    _hideAc(inputId);
+                }
+            } else if (e.key === 'Escape') {
+                _hideAc(inputId);
+            } else if (e.key === 'Tab' && visible) {
+                _hideAc(inputId);
+            }
+        });
+    }
+
+    async function _fetchAc(inputId, query) {
+        const res = await API.autocompleteDrugs(query);
+        const list = (res && res.suggestions) || [];
+        const isFuzzy = res && res.fuzzy;
+        const acId = inputId.replace('cmp-drug-', 'cmp-ac-');
+        const acList = document.getElementById(acId);
+        if (!acList) return;
+        if (!list.length) { _hideAc(inputId); return; }
+
+        let html = '';
+        if (isFuzzy) {
+            html += `<li class="autocomplete-hint">Did you mean…</li>`;
+        }
+        html += list.map(s =>
+            `<li class="autocomplete-item" data-name="${s.name}">
+                <span class="ac-name">${isFuzzy ? s.name : _highlightMatch(s.name, query)}</span>
+                ${s.drug_class ? `<span class="ac-class">${s.drug_class}</span>` : ''}
+            </li>`
+        ).join('');
+        acList.innerHTML = html;
+        acList.style.display = 'block';
+
+        acList.querySelectorAll('.autocomplete-item').forEach(li => {
+            li.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                document.getElementById(inputId).value = li.dataset.name;
+                _hideAc(inputId);
+            });
+        });
+    }
+
+    function _hideAc(inputId) {
+        if (_acState[inputId]) _acState[inputId].index = -1;
+        const acId = inputId.replace('cmp-drug-', 'cmp-ac-');
+        const el = document.getElementById(acId);
+        if (el) { el.innerHTML = ''; el.style.display = 'none'; }
+    }
+
+    function _highlightItems(items, idx) {
+        items.forEach((li, i) => li.classList.toggle('ac-active', i === idx));
+        if (items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
+    }
+
+    function _highlightMatch(text, query) {
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return text;
+        return text.slice(0, idx) + '<strong>' + text.slice(idx, idx + query.length) + '</strong>' + text.slice(idx + query.length);
+    }
+
+    /* ── Run comparison ── */
     async function runComparison() {
         const names = [];
         for (let i = 1; i <= 4; i++) {
-            const val = document.getElementById(`cmp-drug-${i}`).value.trim();
+            const val = (document.getElementById(`cmp-drug-${i}`).value || '').trim();
             if (val) names.push(val);
         }
 
         if (names.length < 2) {
             document.getElementById('cmp-results').innerHTML =
-                '<p class="error-msg">Please enter at least 2 drug names.</p>';
+                '<p class="error-msg">Please enter at least 2 drug names to compare.</p>';
             return;
         }
 
         const resultsEl = document.getElementById('cmp-results');
-        resultsEl.innerHTML = '<div class="loading">Loading comparison… If a drug is new, it may take a moment to fetch from verified sources.</div>';
+        resultsEl.innerHTML = '<div class="loading">Comparing drugs… New drugs may take a moment to retrieve from verified sources.</div>';
+
+        // Ensure currency rates are ready
+        await Currency.loadRates();
 
         const data = await API.compareDrugs(names);
 
@@ -68,114 +194,210 @@ const ComparisonModule = (() => {
             return;
         }
 
-        renderComparisonTable(data, resultsEl);
+        renderComparison(data, resultsEl);
     }
 
-    function renderComparisonTable(data, container) {
+    /* ── Cached last comparison for re-render on currency change ── */
+    let _lastData = null;
+    let _lastContainer = null;
+
+    /* ── Render comparison results ── */
+    function renderComparison(data, container) {
+        _lastData = data;
+        _lastContainer = container;
         const drugs = data.comparison || [];
-        if (drugs.length === 0) {
-            container.innerHTML = '<p>No drugs found for comparison.</p>';
+        if (!drugs.length) {
+            container.innerHTML = '<p class="error-msg">No drugs found for comparison.</p>';
             return;
         }
 
-        const dimensions = [
-            { key: 'drug_class', label: 'Drug Class' },
-            { key: 'mechanism_of_action', label: 'Mechanism of Action' },
-            { key: 'indications', label: 'Approved Indications', format: 'indications' },
-            { key: 'dosage_guidelines', label: 'Adult Dosage', format: 'dosage' },
-            { key: 'safety_warnings', label: 'Key Safety Warnings', format: 'safety' },
-            { key: 'interactions', label: 'Notable Interactions', format: 'interactions' },
-            { key: 'pricing', label: 'Approximate Cost', format: 'pricing' },
-            { key: 'source', label: 'Data Source', format: 'source' },
+        const colCount = drugs.length;
+
+        // Header cards row
+        let html = `<div class="cmp-header-row cmp-cols-${colCount}">`;
+        drugs.forEach(d => {
+            html += `<div class="cmp-drug-header-card">
+                <div class="cmp-drug-name">${d.generic_name}</div>
+                ${d.brand_names && d.brand_names.length
+                    ? `<div class="cmp-brands">${d.brand_names.join(', ')}</div>` : ''}
+                ${d.drug_class
+                    ? `<span class="cmp-class-badge">${d.drug_class}</span>` : ''}
+            </div>`;
+        });
+        html += '</div>';
+
+        // Comparison sections (card-based, not a raw table)
+        const sections = [
+            { key: 'mechanism', label: 'Mechanism of Action', icon: '🧬' },
+            { key: 'indications', label: 'Approved Indications', icon: '📋' },
+            { key: 'dosage', label: 'Adult Dosage', icon: '💊' },
+            { key: 'safety', label: 'Key Safety Warnings', icon: '⚠️' },
+            { key: 'interactions', label: 'Notable Interactions', icon: '🔗' },
+            { key: 'pricing', label: 'Approximate Cost', icon: '💰' },
+            { key: 'source', label: 'Data Source', icon: '📄' },
         ];
 
-        let html = '<table class="comparison-table"><thead><tr>';
-        html += '<th>Parameter</th>';
-        drugs.forEach(d => {
-            html += `<th>${d.generic_name}<br><small>${(d.brand_names || []).join(', ')}</small></th>`;
-        });
-        html += '</tr></thead><tbody>';
-
-        dimensions.forEach(dim => {
-            html += '<tr>';
-            html += `<td class="dimension-label">${dim.label}</td>`;
+        sections.forEach(sec => {
+            html += `<div class="cmp-section">`;
+            // Add currency selector row for pricing section
+            if (sec.key === 'pricing') {
+                html += `<div class="cmp-section-title-row">
+                    <h3 class="cmp-section-title" style="margin-bottom:0;">${sec.icon} ${sec.label}</h3>
+                    <select id="cmp-currency-select" class="currency-select">${Currency.optionsHtml()}</select>
+                </div>`;
+                if (Currency.locationNote() && Currency.current() !== 'USD') {
+                    html += `<div class="currency-location-note" style="font-size:11px;margin:4px 0 8px;">${Currency.locationNote()}</div>`;
+                }
+            } else {
+                html += `<h3 class="cmp-section-title">${sec.icon} ${sec.label}</h3>`;
+            }
+            html += `<div class="cmp-section-grid cmp-cols-${colCount}">`;
             drugs.forEach(drug => {
-                html += `<td>${formatCell(drug, dim)}</td>`;
+                html += `<div class="cmp-cell">${_formatSection(drug, sec.key)}</div>`;
             });
-            html += '</tr>';
+            html += `</div></div>`;
         });
 
-        html += '</tbody></table>';
-
+        // Not-found notice
         if (data.not_found && data.not_found.length) {
-            html += `<p style="margin-top:12px;color:var(--warning);font-size:13px;">
-                Not found in database: ${data.not_found.join(', ')}</p>`;
+            html += `<div class="cmp-notice warning">
+                <strong>Not found in database:</strong> ${data.not_found.join(', ')}
+            </div>`;
         }
 
+        // Disclaimer
         if (data.disclaimer) {
-            html += `<div class="disclaimer-banner" style="margin-top:16px;">${data.disclaimer}</div>`;
+            html += `<div class="disclaimer-banner" style="margin-top:16px;font-size:12px;">${data.disclaimer}</div>`;
         }
 
         container.innerHTML = html;
-    }
 
-    function formatCell(drug, dim) {
-        switch (dim.format) {
-            case 'indications':
-                return (drug.indications || [])
-                    .map(i => `• ${truncate(i.approved_use, 120)}`)
-                    .join('<br>') || 'N/A';
-            case 'dosage':
-                return (drug.dosage_guidelines || [])
-                    .map(d => d.adult_dosage || 'N/A')
-                    .join('<br>') || 'N/A';
-            case 'safety':
-                return (drug.safety_warnings || [])
-                    .map(s => {
-                        const parts = [];
-                        if (s.black_box_warnings) parts.push(`⚠️ ${truncate(s.black_box_warnings, 100)}`);
-                        if (s.pregnancy_risk) parts.push(`Pregnancy: ${s.pregnancy_risk}`);
-                        return parts.join('<br>');
-                    }).join('<br>') || 'N/A';
-            case 'interactions':
-                return (drug.interactions || []).slice(0, 3)
-                    .map(x => `${x.interacting_drug} <span class="drug-tag">${x.severity}</span>`)
-                    .join('<br>') || 'None documented';
-            case 'pricing':
-                return (drug.pricing || [])
-                    .map(p => {
-                        let text = p.approximate_cost || 'N/A';
-                        if (p.pricing_source === 'NADAC' && p.nadac_per_unit) {
-                            text += `<br><span style="font-size:10px;color:#1e8449;">NADAC: $${p.nadac_per_unit.toFixed(4)}/unit</span>`;
-                        }
-                        if (p.pricing_source) {
-                            const badge = p.pricing_source === 'NADAC'
-                                ? '<span style="font-size:9px;padding:1px 4px;background:#d5f5e3;color:#1e8449;border-radius:2px;">CMS NADAC</span>'
-                                : '<span style="font-size:9px;padding:1px 4px;background:#fdebd0;color:#b7950b;border-radius:2px;">Estimate</span>';
-                            text += `<br>${badge}`;
-                        }
-                        return text;
-                    })
-                    .join('<br>') || 'N/A';
-            case 'source':
-                if (drug.source) {
-                    const authority = drug.source.authority || '';
-                    const badgeColors = { 'FDA': '#1a5276', 'NIH/NLM': '#196f3d', 'CMS': '#7d3c98' };
-                    const color = badgeColors[authority] || '#555';
-                    const effDate = drug.source.effective_date ? `<br>Label: ${drug.source.effective_date}` : '';
-                    const retrieved = drug.source.data_retrieved_at ? `<br>Fetched: ${new Date(drug.source.data_retrieved_at).toLocaleDateString()}` : '';
-                    return `<span style="display:inline-block;padding:1px 4px;background:${color};color:#fff;border-radius:2px;font-size:9px;">${authority}</span>
-                        <span style="font-size:10px;"> ${drug.source.document_title || ''} (${drug.source.publication_year || ''})</span>
-                        ${effDate}${retrieved}
-                        ${drug.source.url ? `<br><a href="${drug.source.url}" target="_blank" rel="noopener" style="font-size:10px;color:${color};">Verify ↗</a>` : ''}`;
+        // Bind currency selector
+        const currSel = document.getElementById('cmp-currency-select');
+        if (currSel) {
+            currSel.addEventListener('change', () => {
+                Currency.setCurrency(currSel.value);
+                if (_lastData && _lastContainer) {
+                    renderComparison(_lastData, _lastContainer);
                 }
-                return 'N/A';
-            default:
-                return drug[dim.key] || 'N/A';
+            });
         }
     }
 
-    function truncate(str, max) {
+    /* ── Format each comparison cell ── */
+    function _formatSection(drug, key) {
+        switch (key) {
+            case 'mechanism':
+                return drug.mechanism_of_action
+                    ? `<p>${_truncate(drug.mechanism_of_action, 400)}</p>`
+                    : '<span class="cmp-na">N/A</span>';
+
+            case 'indications':
+                if (!drug.indications || !drug.indications.length) return '<span class="cmp-na">N/A</span>';
+                return '<ul class="cmp-bullets">' +
+                    drug.indications.map(i =>
+                        `<li>${_truncate(i.approved_use, 150)}</li>`
+                    ).join('') + '</ul>';
+
+            case 'dosage':
+                if (!drug.dosage_guidelines || !drug.dosage_guidelines.length) return '<span class="cmp-na">N/A</span>';
+                return drug.dosage_guidelines.map(d =>
+                    d.adult_dosage ? `<p>${_truncate(d.adult_dosage, 300)}</p>` : ''
+                ).join('') || '<span class="cmp-na">N/A</span>';
+
+            case 'safety': {
+                if (!drug.safety_warnings || !drug.safety_warnings.length) return '<span class="cmp-na">N/A</span>';
+                let h = '';
+                drug.safety_warnings.forEach(w => {
+                    if (w.black_box_warnings) {
+                        h += `<div class="cmp-blackbox">⛔ ${_truncate(w.black_box_warnings, 200)}</div>`;
+                    }
+                    if (w.contraindications) {
+                        h += `<p><strong>Contraindications:</strong> ${_truncate(w.contraindications, 200)}</p>`;
+                    }
+                    if (w.pregnancy_risk) {
+                        h += `<p><strong>Pregnancy:</strong> ${_truncate(w.pregnancy_risk, 100)}</p>`;
+                    }
+                    // FAERS summary
+                    if (w.adverse_event_count) {
+                        const serious = w.adverse_event_serious_count || 0;
+                        const pct = w.adverse_event_count ? ((serious / w.adverse_event_count) * 100).toFixed(1) : '—';
+                        h += `<div class="cmp-faers">
+                            FAERS: ${w.adverse_event_count.toLocaleString()} reports
+                            (${pct}% serious)
+                        </div>`;
+                    }
+                });
+                return h || '<span class="cmp-na">N/A</span>';
+            }
+
+            case 'interactions':
+                if (!drug.interactions || !drug.interactions.length) return '<span class="cmp-na">None documented</span>';
+                return drug.interactions.slice(0, 4).map(ix => {
+                    const sevColors = {
+                        'contraindicated': '#e74c3c', 'major': '#e67e22',
+                        'moderate': '#f1c40f', 'minor': '#27ae60',
+                    };
+                    const col = sevColors[ix.severity] || '#888';
+                    return `<div class="cmp-interaction">
+                        <span>${ix.interacting_drug}</span>
+                        <span class="cmp-sev-badge" style="background:${col};">${ix.severity}</span>
+                    </div>`;
+                }).join('');
+
+            case 'pricing':
+                if (!drug.pricing || !drug.pricing.length) return '<span class="cmp-na">No data</span>';
+                return drug.pricing.map(p => {
+                    let txt = '';
+                    const isNadac = p.pricing_source === 'NADAC';
+                    const tag = isNadac
+                        ? '<span class="cmp-price-tag nadac">CMS NADAC</span>'
+                        : '<span class="cmp-price-tag est">Estimate</span>';
+                    txt += tag;
+                    if (isNadac && p.nadac_per_unit) {
+                        txt += `<div class="cmp-price-val">${Currency.format(p.nadac_per_unit, 4)}/unit</div>`;
+                        if (Currency.current() !== 'USD') {
+                            txt += `<div style="font-size:10px;color:var(--text-muted);">(US$${p.nadac_per_unit.toFixed(4)})</div>`;
+                        }
+                    }
+                    if (p.approximate_cost) {
+                        // Parse unit cost from approximate_cost and convert
+                        const unitMatch = p.approximate_cost.match(/\$(\d+\.\d+)\/EA/);
+                        const monthlyMatch = p.approximate_cost.match(/~\$(\d[\d.,]*)[\u2013-]\$(\d[\d.,]*)\/month/);
+                        if (unitMatch) {
+                            txt += `<div class="cmp-price-cost">Unit: ${Currency.format(parseFloat(unitMatch[1]), 4)}/ea</div>`;
+                        }
+                        if (monthlyMatch) {
+                            const lo = parseFloat(monthlyMatch[1].replace(',', ''));
+                            const hi = parseFloat(monthlyMatch[2].replace(',', ''));
+                            txt += `<div class="cmp-price-cost">Monthly: ${Currency.format(lo)} – ${Currency.format(hi)}</div>`;
+                        }
+                        if (!unitMatch && !monthlyMatch) {
+                            const first = p.approximate_cost.split(';')[0].trim();
+                            txt += `<div class="cmp-price-cost">${_truncate(first, 120)}</div>`;
+                        }
+                    }
+                    return `<div class="cmp-pricing-entry">${txt}</div>`;
+                }).join('');
+
+            case 'source':
+                if (!drug.source) return '<span class="cmp-na">N/A</span>';
+                const s = drug.source;
+                const authority = s.authority || '';
+                const badgeColors = { 'FDA': '#1a5276', 'NIH/NLM': '#196f3d', 'CMS': '#7d3c98' };
+                const color = badgeColors[authority] || '#555';
+                return `<div>
+                    <span class="cmp-auth-badge" style="background:${color};">${authority}</span>
+                    <span class="cmp-src-title">${s.document_title || ''} ${s.publication_year ? '(' + s.publication_year + ')' : ''}</span>
+                    ${s.url ? `<br><a href="${s.url}" target="_blank" rel="noopener" class="cmp-verify-link">Verify ↗</a>` : ''}
+                </div>`;
+
+            default:
+                return drug[key] || '<span class="cmp-na">N/A</span>';
+        }
+    }
+
+    function _truncate(str, max) {
         if (!str) return '';
         return str.length > max ? str.substring(0, max) + '…' : str;
     }

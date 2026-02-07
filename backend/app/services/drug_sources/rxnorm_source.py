@@ -29,6 +29,9 @@ SEARCH_DELAY = 0.5
 class RxNormSource(DrugDataSource):
     """Fetch drug classification and nomenclature data from NIH RxNorm/RxNav."""
 
+    def __init__(self, delay_scale: float = 1.0):
+        self.delay_scale = delay_scale
+
     @property
     def source_name(self) -> str:
         return "NIH RxNorm / RxNav API"
@@ -40,7 +43,7 @@ class RxNormSource(DrugDataSource):
     def _api_get(self, url: str, params: dict = None) -> Optional[dict]:
         """Rate-limited GET request."""
         try:
-            time.sleep(SEARCH_DELAY)
+            time.sleep(SEARCH_DELAY * self.delay_scale)
             resp = requests.get(url, params=params or {}, timeout=30)
             if resp.status_code == 200:
                 ct = resp.headers.get("Content-Type", "")

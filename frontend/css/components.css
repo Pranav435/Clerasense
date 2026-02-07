@@ -86,22 +86,10 @@
     box-shadow: 0 0 0 3px var(--accent-light);
 }
 
-/* ── Comparison Module ── */
+/* ── Comparison Module (old table kept for compat) ── */
 .comparison-container {
-    max-width: 1000px;
+    max-width: 1100px;
     margin: 0 auto;
-}
-
-.comparison-input {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
-    align-items: flex-end;
-}
-
-.comparison-input .form-group {
-    margin-bottom: 0;
 }
 
 .comparison-table {
@@ -141,6 +129,248 @@
     color: var(--text-primary);
     white-space: nowrap;
     min-width: 160px;
+}
+
+/* ── Comparison Module – new card layout ── */
+.cmp-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.cmp-input-wrap {
+    position: relative;
+}
+.cmp-input-wrap label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.cmp-optional {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+.cmp-drug-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+.cmp-drug-input:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+.cmp-ac-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 100;
+}
+
+.cmp-actions {
+    display: flex;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+/* Drug header cards */
+.cmp-header-row {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+.cmp-drug-header-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+}
+.cmp-drug-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.cmp-brands {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.cmp-class-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Section rows */
+.cmp-section {
+    margin-bottom: 4px;
+}
+.cmp-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    padding: 8px 0 4px;
+    border-bottom: 2px solid var(--border-light);
+}
+.cmp-section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0 4px;
+    border-bottom: 2px solid var(--border-light);
+    margin-bottom: 8px;
+}
+.cmp-section-title-row .cmp-section-title {
+    border-bottom: none;
+    margin: 0;
+    padding: 0;
+}
+.cmp-section-grid {
+    display: grid;
+    gap: 12px;
+}
+.cmp-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.cmp-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cmp-cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+.cmp-cell {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-primary);
+}
+.cmp-cell p { margin: 4px 0; }
+.cmp-na {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 12px;
+}
+.cmp-bullets {
+    list-style: disc;
+    padding-left: 18px;
+    margin: 4px 0;
+}
+.cmp-bullets li {
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+.cmp-blackbox {
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.cmp-faers {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding: 4px 8px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+}
+
+/* Interactions */
+.cmp-interaction {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+.cmp-sev-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    color: #fff;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* Pricing */
+.cmp-pricing-entry {
+    margin-bottom: 6px;
+}
+.cmp-price-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+}
+.cmp-price-tag.nadac { background: #d5f5e3; color: #1e8449; }
+.cmp-price-tag.est   { background: #fdebd0; color: #b7950b; }
+.cmp-price-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 2px 0;
+}
+.cmp-price-cost {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Source */
+.cmp-auth-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    color: #fff;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 600;
+}
+.cmp-src-title {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.cmp-verify-link {
+    font-size: 11px;
+}
+
+/* Warning notice */
+.cmp-notice {
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-top: 12px;
+}
+.cmp-notice.warning {
+    background: #fef9e7;
+    color: #7d6608;
+    border: 1px solid #f9e79f;
+}
+
+/* Responsive: match header cols to section cols */
+@media (max-width: 700px) {
+    .cmp-section-grid,
+    .cmp-header-row,
+    .cmp-inputs {
+        grid-template-columns: 1fr !important;
+    }
 }
 
 /* ── Safety Checker Module ── */

@@ -91,7 +91,7 @@ def _estimate_cost(drug_name: str, drug_class: str, route: str, generic_availabl
             return "Estimated $30–$300/month (brand; verify with pharmacy)"
 
 
-def _fetch_adverse_events(generic_name: str) -> dict:
+def _fetch_adverse_events(generic_name: str, delay_scale: float = 1.0) -> dict:
     """
     Fetch adverse event summary from FDA FAERS (Adverse Event Reporting System).
     Returns total count, serious count, and top reactions.
@@ -103,7 +103,7 @@ def _fetch_adverse_events(generic_name: str) -> dict:
     }
     try:
         # 1. Get total event count
-        time.sleep(SEARCH_DELAY)
+        time.sleep(SEARCH_DELAY * delay_scale)
         search_term = f'patient.drug.openfda.generic_name:"{generic_name}"'
         resp = requests.get(EVENT_URL, params={
             "search": search_term,
@@ -115,7 +115,7 @@ def _fetch_adverse_events(generic_name: str) -> dict:
             result["total_count"] = meta.get("total", 0)
 
         # 2. Get serious event count (count=serious returns term:1=serious, term:2=not serious)
-        time.sleep(SEARCH_DELAY)
+        time.sleep(SEARCH_DELAY * delay_scale)
         resp2 = requests.get(EVENT_URL, params={
             "search": search_term,
             "count": "serious",
@@ -133,7 +133,7 @@ def _fetch_adverse_events(generic_name: str) -> dict:
                 result["serious_count"] = meta2.get("total", 0)
 
         # 3. Get top adverse reactions
-        time.sleep(SEARCH_DELAY)
+        time.sleep(SEARCH_DELAY * delay_scale)
         resp3 = requests.get(EVENT_URL, params={
             "search": search_term,
             "count": "patient.reaction.reactionmeddrapt.exact",
@@ -175,6 +175,9 @@ def _parse_effective_date(label: dict) -> tuple[str, int]:
 class OpenFDASource(DrugDataSource):
     """Fetch drug labeling data from the OpenFDA Drug Label API."""
 
+    def __init__(self, delay_scale: float = 1.0):
+        self.delay_scale = delay_scale
+
     @property
     def source_name(self) -> str:
         return "OpenFDA Drug Label API"
@@ -186,7 +189,7 @@ class OpenFDASource(DrugDataSource):
     def _api_get(self, params: dict, url: str = None) -> Optional[dict]:
         """Make a rate-limited GET request to OpenFDA."""
         try:
-            time.sleep(SEARCH_DELAY)
+            time.sleep(SEARCH_DELAY * self.delay_scale)
             resp = requests.get(url or LABEL_URL, params=params, timeout=30)
             if resp.status_code == 200:
                 return resp.json()
@@ -388,7 +391,11 @@ class OpenFDASource(DrugDataSource):
         effective_date, source_year = _parse_effective_date(label)
 
         # --- Fetch adverse event data from FAERS ---
-        faers = _fetch_adverse_events(generic_name)
+        faers = _fetch_adverse_events(generic_name, self.delay_scale)
+
+        # Extract interactions from the already-fetched label (avoids re-fetching)
+        raw_interactions = _clean_text(label.get("drug_interactions"))
+        interactions = _parse_interaction_text(raw_interactions) if raw_interactions else []
 
         return NormalizedDrugData(
             generic_name=generic_name.title(),
@@ -404,6 +411,7 @@ class OpenFDASource(DrugDataSource):
             black_box_warnings=black_box,
             pregnancy_risk=pregnancy_risk,
             lactation_risk=lactation_risk,
+            interactions=interactions,
             approximate_cost=approximate_cost,
             generic_available=generic_available,
             adverse_event_count=faers.get("total_count"),

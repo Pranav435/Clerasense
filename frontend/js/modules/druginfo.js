@@ -7,79 +7,10 @@
 
 const DrugInfoModule = (() => {
 
-    /* ── Currency state ── */
-    let _currency = 'USD';
-    let _rates = null;          // exchange rates vs USD
-    let _locationNote = '';     // e.g. "Based on your approximate location (India)"
-
-    const CURRENCY_SYMBOLS = {
-        USD: '$', EUR: '€', GBP: '£', INR: '₹', JPY: '¥', CNY: '¥',
-        AUD: 'A$', CAD: 'C$', CHF: 'CHF', KRW: '₩', BRL: 'R$',
-        MXN: 'MX$', ZAR: 'R', SGD: 'S$', HKD: 'HK$', SEK: 'kr',
-        NOK: 'kr', DKK: 'kr', NZD: 'NZ$', THB: '฿', MYR: 'RM',
-        PHP: '₱', IDR: 'Rp', AED: 'AED', SAR: 'SAR', BDT: '৳',
-        PKR: 'Rs', LKR: 'Rs', NPR: 'Rs', EGP: 'E£', NGN: '₦',
-    };
-
-    const COUNTRY_TO_CURRENCY = {
-        US: 'USD', GB: 'GBP', IN: 'INR', JP: 'JPY', CN: 'CNY',
-        AU: 'AUD', CA: 'CAD', CH: 'CHF', KR: 'KRW', BR: 'BRL',
-        MX: 'MXN', ZA: 'ZAR', SG: 'SGD', HK: 'HKD', SE: 'SEK',
-        NO: 'NOK', DK: 'DKK', NZ: 'NZD', TH: 'THB', MY: 'MYR',
-        PH: 'PHP', ID: 'IDR', AE: 'AED', SA: 'SAR', BD: 'BDT',
-        PK: 'PKR', LK: 'LKR', NP: 'NPR', EG: 'EGP', NG: 'NGN',
-        DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR', NL: 'EUR',
-        BE: 'EUR', AT: 'EUR', PT: 'EUR', IE: 'EUR', FI: 'EUR',
-        GR: 'EUR', LU: 'EUR',
-    };
-
-    /** Detect approximate location via IP (no GPS / no precise location). */
-    async function _detectCurrency() {
-        try {
-            const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(4000) });
-            if (!res.ok) return;
-            const geo = await res.json();
-            const cc = (geo.country_code || '').toUpperCase();
-            const country = geo.country_name || cc;
-            const mapped = COUNTRY_TO_CURRENCY[cc];
-            if (mapped && mapped !== 'USD') {
-                _currency = mapped;
-                _locationNote = `Showing prices in ${mapped} based on your approximate location (${country}). No precise location is accessed.`;
-            }
-        } catch { /* fallback to USD silently */ }
-    }
-
-    /** Fetch exchange rates (USD base). Cached for session. */
-    async function _loadRates() {
-        if (_rates) return;
-        try {
-            const res = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(5000) });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.rates) _rates = data.rates;
-        } catch { /* will stay null → show USD */ }
-    }
-
-    function _convertPrice(usd) {
-        if (!usd || !_rates || _currency === 'USD') return usd;
-        const rate = _rates[_currency];
-        if (!rate) return usd;
-        return usd * rate;
-    }
-
+    /* ── Currency helpers (delegated to shared Currency utility) ── */
     function _formatPrice(usd, decimals = 2) {
-        const sym = CURRENCY_SYMBOLS[_currency] || _currency + ' ';
-        const converted = _convertPrice(usd);
-        if (converted === null || converted === undefined) return 'N/A';
-        return `${sym}${converted.toFixed(decimals)}`;
+        return Currency.format(usd, decimals);
     }
-
-    /* ── Lifecycle hooks ── */
-    // Kick off currency detection + rate loading once on first import
-    (async () => {
-        await _detectCurrency();
-        await _loadRates();
-    })();
 
     function render(container) {
         container.innerHTML = `
@@ -230,7 +161,7 @@ const DrugInfoModule = (() => {
         resultsEl.innerHTML = '<div class="loading">Retrieving drug profile from FDA, DailyMed, NADAC &amp; FAERS… may take a moment for new drugs.</div>';
 
         // Ensure rates are loaded
-        await _loadRates();
+        await Currency.loadRates();
 
         // Fetch drug profile AND pricing in parallel
         const [rawDrug, pricingData] = await Promise.all([
@@ -435,23 +366,12 @@ const DrugInfoModule = (() => {
         const sel = document.getElementById('currency-select');
         if (sel) {
             sel.addEventListener('change', () => {
-                _currency = sel.value;
+                Currency.setCurrency(sel.value);
                 // Re-render pricing section only
                 const pricingCard = document.getElementById('pricing-section-card');
                 if (pricingCard) {
                     pricingCard.outerHTML = renderPricingSection(pricing);
-                    // Re-bind
-                    const newSel = document.getElementById('currency-select');
-                    if (newSel) {
-                        newSel.addEventListener('change', () => {
-                            _currency = newSel.value;
-                            const pc = document.getElementById('pricing-section-card');
-                            if (pc) {
-                                pc.outerHTML = renderPricingSection(pricing);
-                                bindCurrencySelector(pricing);
-                            }
-                        });
-                    }
+                    bindCurrencySelector(pricing);
                 }
             });
         }
@@ -461,7 +381,7 @@ const DrugInfoModule = (() => {
         const sel = document.getElementById('currency-select');
         if (!sel) return;
         sel.addEventListener('change', () => {
-            _currency = sel.value;
+            Currency.setCurrency(sel.value);
             const pc = document.getElementById('pricing-section-card');
             if (pc) {
                 pc.outerHTML = renderPricingSection(pricing);
@@ -514,9 +434,7 @@ const DrugInfoModule = (() => {
     /* ── Simplified Pricing section ── */
     function renderPricingSection(data) {
         // Build currency option list
-        const currencyOptions = Object.keys(CURRENCY_SYMBOLS).map(c =>
-            `<option value="${c}" ${c === _currency ? 'selected' : ''}>${c} (${CURRENCY_SYMBOLS[c]})</option>`
-        ).join('');
+        const currencyOptions = Currency.optionsHtml();
 
         if (!data || data.error) {
             return `<div class="druginfo-card" id="pricing-section-card">
@@ -535,8 +453,8 @@ const DrugInfoModule = (() => {
             </div>`;
 
         // Location note
-        if (_locationNote && _currency !== 'USD') {
-            html += `<div class="currency-location-note">${_locationNote}</div>`;
+        if (Currency.locationNote() && Currency.current() !== 'USD') {
+            html += `<div class="currency-location-note">${Currency.locationNote()}</div>`;
         }
 
         // Generic availability
@@ -600,7 +518,7 @@ const DrugInfoModule = (() => {
                 if (isNadac && p.nadac_per_unit) {
                     html += `<div class="pricing-unit-row">
                         Verified unit cost: <strong>${_formatPrice(p.nadac_per_unit, 4)}</strong>/unit
-                        ${_currency !== 'USD' ? `<span class="pricing-orig">(US$${p.nadac_per_unit.toFixed(4)})</span>` : ''}
+                        ${Currency.current() !== 'USD' ? `<span class="pricing-orig">(US$${p.nadac_per_unit.toFixed(4)})</span>` : ''}
                         ${p.nadac_effective_date ? `<span class="pricing-date">as of ${p.nadac_effective_date}</span>` : ''}
                     </div>`;
                 }

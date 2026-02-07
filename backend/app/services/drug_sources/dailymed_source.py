@@ -71,6 +71,9 @@ def _extract_text_from_element(elem) -> str:
 class DailyMedSource(DrugDataSource):
     """Fetch structured product labeling data from NIH DailyMed."""
 
+    def __init__(self, delay_scale: float = 1.0):
+        self.delay_scale = delay_scale
+
     @property
     def source_name(self) -> str:
         return "NIH DailyMed API"
@@ -82,7 +85,7 @@ class DailyMedSource(DrugDataSource):
     def _api_get_json(self, endpoint: str, params: dict) -> Optional[dict]:
         """Rate-limited JSON GET to DailyMed."""
         try:
-            time.sleep(SEARCH_DELAY)
+            time.sleep(SEARCH_DELAY * self.delay_scale)
             url = f"{BASE_URL}/{endpoint}"
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code == 200:
@@ -244,7 +247,7 @@ class DailyMedSource(DrugDataSource):
         """
         sections: dict[str, str] = {}
         try:
-            time.sleep(SEARCH_DELAY)
+            time.sleep(SEARCH_DELAY * self.delay_scale)
             zip_url = f"https://dailymed.nlm.nih.gov/dailymed/getFile.cfm?setid={setid}&type=zip&name={setid}"
             resp = requests.get(zip_url, timeout=45)
             if resp.status_code != 200:
@@ -321,6 +324,7 @@ class DailyMedSource(DrugDataSource):
         if not mechanism:
             mechanism = _clean_xml_text(sections.get("clinical_pharmacology", ""))
         drug_interactions_text = _clean_xml_text(sections.get("drug_interactions", ""))
+        interactions = _parse_interaction_text(drug_interactions_text) if drug_interactions_text else []
         adverse = _clean_xml_text(sections.get("adverse_reactions", ""))
 
         # Enrich contraindications with warnings & adverse reactions
@@ -352,6 +356,7 @@ class DailyMedSource(DrugDataSource):
             black_box_warnings=boxed,
             pregnancy_risk=pregnancy,
             lactation_risk=nursing,
+            interactions=interactions,
             source_authority="NIH/NLM",
             source_document_title=f"DailyMed SPL – {generic_name.title()}",
             source_url=source_url,

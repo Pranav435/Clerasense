@@ -10,6 +10,7 @@ Flow:
   5. Trigger embedding generation for new drugs.
 """
 
+import concurrent.futures
 import logging
 from datetime import datetime
 from typing import Optional
@@ -272,14 +273,18 @@ def _generate_embedding_for_drug(drug: Drug) -> None:
         logger.warning("Embedding generation failed for '%s': %s", drug.generic_name, exc)
 
 
-def ingest_single_drug(drug_name: str) -> dict:
+def ingest_single_drug(drug_name: str, delay_scale: float = 0.2) -> dict:
     """
     Full ingestion pipeline for a single drug:
       1. Check if already in DB
-      2. Fetch from all sources
+      2. Fetch from all sources (in parallel)
       3. Cross-verify
       4. Insert if verified
       5. Generate embedding
+
+    Args:
+        delay_scale: Multiplier for API rate-limit sleep.
+            0.2 = fast on-demand (~3-5x speedup), 1.0 = safe batch mode.
 
     Returns a status dict.
     """
@@ -290,51 +295,36 @@ def ingest_single_drug(drug_name: str) -> dict:
 
     logger.info("Ingesting drug: %s", drug_name)
 
-    # Fetch from all sources in parallel-ish fashion
+    # Create source instances with the requested delay scale.
+    # Each adapter now embeds interaction extraction in fetch_drug_data(),
+    # eliminating redundant HTTP calls (DailyMed double-fetch, OpenFDA label re-fetch).
+    fda = OpenFDASource(delay_scale=delay_scale)
+    dm = DailyMedSource(delay_scale=delay_scale)
+    rx = RxNormSource(delay_scale=delay_scale)
+    nadac = NADACSource(delay_scale=delay_scale)
+
+    # Fetch from all 4 independent APIs in parallel
     source_results: list[NormalizedDrugData] = []
+    fetchers = {
+        "OpenFDA": lambda: fda.fetch_drug_data(drug_name),
+        "DailyMed": lambda: dm.fetch_drug_data(drug_name),
+        "RxNorm": lambda: rx.fetch_drug_data(drug_name),
+        "NADAC": lambda: nadac.fetch_drug_data(drug_name),
+    }
 
-    # Source 1: OpenFDA (label data + adverse events from FAERS)
-    try:
-        fda_data = _openfda.fetch_drug_data(drug_name)
-        if fda_data:
-            # Also fetch interactions from FDA
-            fda_interactions = _openfda.fetch_interactions(drug_name)
-            fda_data.interactions = fda_interactions
-            source_results.append(fda_data)
-            logger.debug("OpenFDA returned data for '%s'", drug_name)
-    except Exception as exc:
-        logger.warning("OpenFDA fetch failed for '%s': %s", drug_name, exc)
-
-    # Source 2: DailyMed (SPL XML label data)
-    try:
-        dm_data = _dailymed.fetch_drug_data(drug_name)
-        if dm_data:
-            dm_interactions = _dailymed.fetch_interactions(drug_name)
-            dm_data.interactions = dm_interactions
-            source_results.append(dm_data)
-            logger.debug("DailyMed returned data for '%s'", drug_name)
-    except Exception as exc:
-        logger.warning("DailyMed fetch failed for '%s': %s", drug_name, exc)
-
-    # Source 3: RxNorm (classification + nomenclature)
-    try:
-        rx_data = _rxnorm.fetch_drug_data(drug_name)
-        if rx_data:
-            rx_interactions = _rxnorm.fetch_interactions(drug_name)
-            rx_data.interactions = rx_interactions
-            source_results.append(rx_data)
-            logger.debug("RxNorm returned data for '%s'", drug_name)
-    except Exception as exc:
-        logger.warning("RxNorm fetch failed for '%s': %s", drug_name, exc)
-
-    # Source 4: CMS NADAC (real government pricing data)
-    try:
-        nadac_data = _nadac.fetch_drug_data(drug_name)
-        if nadac_data:
-            source_results.append(nadac_data)
-            logger.debug("NADAC returned pricing data for '%s'", drug_name)
-    except Exception as exc:
-        logger.warning("NADAC fetch failed for '%s': %s", drug_name, exc)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        future_to_name = {
+            executor.submit(fn): name for name, fn in fetchers.items()
+        }
+        for future in concurrent.futures.as_completed(future_to_name):
+            src_name = future_to_name[future]
+            try:
+                data = future.result()
+                if data:
+                    source_results.append(data)
+                    logger.debug("%s returned data for '%s'", src_name, drug_name)
+            except Exception as exc:
+                logger.warning("%s fetch failed for '%s': %s", src_name, drug_name, exc)
 
     if not source_results:
         _log_ingestion(drug_name, "discovery", "not_found", notes="No sources returned data")
@@ -406,7 +396,7 @@ def discover_and_ingest(batch_size: int = 20, max_batches: int = 5) -> dict:
         stats["discovered"] += len(drug_names)
 
         for name in drug_names:
-            result = ingest_single_drug(name)
+            result = ingest_single_drug(name, delay_scale=1.0)
             status = result.get("status", "unknown")
 
             if status == "ingested":
@@ -445,7 +435,6 @@ def update_existing_drugs() -> dict:
             try:
                 fda_data = _openfda.fetch_drug_data(name)
                 if fda_data:
-                    fda_data.interactions = _openfda.fetch_interactions(name)
                     source_results.append(fda_data)
             except Exception:
                 pass

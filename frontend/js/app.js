@@ -9,6 +9,7 @@ const App = (() => {
     const modules = {
         druginfo: DrugInfoModule,
         askmore: AskMoreModule,
+        comparison: ComparisonModule,
         safety: SafetyModule,
     };
 
