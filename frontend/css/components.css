@@ -1,0 +1,387 @@
+/* ================================================================
+   Clerasense – Component Styles
+   Styles for module-specific UI components.
+   ================================================================ */
+
+/* ── Chat Module ── */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.chat-header {
+    margin-bottom: 20px;
+}
+
+.chat-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.chat-header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.chat-message {
+    padding: 14px 18px;
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 90%;
+}
+
+.chat-message.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: white;
+    border-bottom-right-radius: var(--radius-sm);
+}
+
+.chat-message.assistant {
+    align-self: flex-start;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: var(--radius-sm);
+}
+
+.chat-message.refusal {
+    background: var(--warning-light);
+    border: 1px solid var(--warning);
+}
+
+.chat-input-area {
+    display: flex;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.chat-input-area input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-family: var(--font-body);
+}
+
+.chat-input-area input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+/* ── Comparison Module ── */
+.comparison-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.comparison-input {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+}
+
+.comparison-input .form-group {
+    margin-bottom: 0;
+}
+
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.comparison-table th {
+    background: var(--bg-sidebar);
+    color: var(--text-inverse);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.comparison-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.comparison-table tr:hover td {
+    background: var(--bg-primary);
+}
+
+.dimension-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    min-width: 160px;
+}
+
+/* ── Safety Checker Module ── */
+.safety-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.safety-input {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+}
+
+.context-flags {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.context-flag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.context-flag input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+.alert-card {
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.alert-card.severity-minor {
+    background: #f0fdf4;
+    border-left: 4px solid var(--severity-minor);
+}
+
+.alert-card.severity-moderate {
+    background: var(--warning-light);
+    border-left: 4px solid var(--severity-moderate);
+}
+
+.alert-card.severity-major {
+    background: var(--danger-light);
+    border-left: 4px solid var(--severity-major);
+}
+
+.alert-card.severity-contraindicated {
+    background: #fef2f2;
+    border-left: 4px solid var(--severity-contraindicated);
+}
+
+.alert-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.alert-source {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+/* ── Pricing Module ── */
+.pricing-container {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.pricing-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.pricing-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.pricing-drug-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.generic-badge {
+    padding: 3px 10px;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.pricing-detail {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+}
+
+.pricing-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.pricing-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.reimbursement-item {
+    padding: 10px 14px;
+    background: var(--info-light);
+    border-radius: var(--radius-sm);
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+.reimbursement-scheme {
+    font-weight: 700;
+    color: var(--info);
+    margin-bottom: 4px;
+}
+
+/* ── Disclaimer Banner ── */
+.disclaimer-banner {
+    padding: 10px 16px;
+    background: var(--warning-light);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--warning);
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+/* ── Source Citation ── */
+.source-citation {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--info);
+    background: var(--info-light);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    margin: 2px 0;
+}
+
+.source-link {
+    color: var(--info);
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.source-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Empty State ── */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.empty-state p {
+    font-size: 13px;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* ── Section Heading ── */
+.section-heading {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+/* ── Markdown-like rendering in chat ── */
+.chat-message strong {
+    font-weight: 700;
+}
+
+.chat-message ul, .chat-message ol {
+    padding-left: 20px;
+    margin: 8px 0;
+}
+
+.chat-message li {
+    margin: 4px 0;
+}
+
+/* ── Drug tags ── */
+.drug-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 2px;
+}
+
+/* ── Results section ── */
+.results-section {
+    margin-top: 20px;
+}
+
+.results-section h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
