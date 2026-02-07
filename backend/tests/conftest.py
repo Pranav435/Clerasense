@@ -1,27 +1,82 @@
 """
 Pytest configuration & fixtures for Clerasense backend tests.
+
+Key design decisions:
+  - Uses sqlite:///:memory: for speed and isolation.
+  - Patches SQLAlchemy ARRAY → JSON-backed Text before models load
+    (SQLite has no ARRAY type).
+  - Disables background scheduler & initial ingestion to prevent
+    network calls during testing.
+  - Seeds complete test data including FAERS + NADAC fields.
 """
 
+import json
 import os
 import sys
+from unittest import mock
+
 import pytest
 
-# Ensure backend package is importable
+# ── 1. Ensure backend package is importable ──
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# Set test environment variables BEFORE importing app
-os.environ.setdefault("OPENAI_API_KEY", "test-key-not-real")
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("FLASK_SECRET_KEY", "test-secret-key")
-os.environ.setdefault("JWT_SECRET", "test-jwt-secret")
-os.environ.setdefault("EMBEDDING_MODEL_NAME", "text-embedding-3-small")
-os.environ.setdefault("APP_ENV", "testing")
+# ── 2. Set test environment BEFORE anything else ──
+os.environ["OPENAI_API_KEY"] = "test-key-not-real"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["FLASK_SECRET_KEY"] = "test-secret-key"
+os.environ["JWT_SECRET"] = "test-jwt-secret"
+os.environ["EMBEDDING_MODEL_NAME"] = "text-embedding-3-small"
+os.environ["APP_ENV"] = "testing"
 
+# ── 3. Patch ARRAY type for SQLite compat BEFORE any model loads ──
+import sqlalchemy
+import sqlalchemy.types as _sa_types
+
+
+class _PortableArray(_sa_types.TypeDecorator):
+    """Drop-in replacement for ARRAY that stores values as JSON text."""
+
+    impl = _sa_types.Text
+    cache_ok = True
+
+    def __init__(self, item_type=None, *args, **kwargs):
+        super().__init__()
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return json.dumps(value)
+        return None
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return value
+
+
+# Patch BEFORE any model module is imported
+sqlalchemy.ARRAY = _PortableArray
+_sa_types.ARRAY = _PortableArray
+
+# ── 4. Mock background scheduler so it never runs during tests ──
+_noop = lambda *a, **kw: None
+mock.patch("app.services.background_scheduler.init_scheduler", _noop).start()
+mock.patch("app.services.background_scheduler.run_initial_ingestion", _noop).start()
+
+# ── 5. NOW safe to import application modules ──
 from app.main import create_app
 from app.database import db as _db
-from app.models.models import Doctor, Source, Drug, SafetyWarning, DrugInteraction, Indication, DosageGuideline, Pricing, Reimbursement
-import bcrypt
+from app.models.models import (
+    Doctor, Source, Drug, SafetyWarning, DrugInteraction,
+    Indication, DosageGuideline, Pricing, Reimbursement,
+)
 
+
+# ═══════════════════════════════════════════
+# FIXTURES
+# ═══════════════════════════════════════════
 
 @pytest.fixture(scope="session")
 def app():
@@ -34,7 +89,7 @@ def app():
 
 @pytest.fixture(scope="session")
 def _setup_db(app):
-    """Create all tables once for the test session."""
+    """Create all tables once for the test session and seed data."""
     with app.app_context():
         _db.create_all()
         _seed_test_data()
@@ -54,8 +109,7 @@ def client(app, _setup_db):
 
 @pytest.fixture
 def auth_headers(client):
-    """Register a test doctor and return auth headers."""
-    # Check if doctor already exists
+    """Register a test doctor and return valid auth headers."""
     with client.application.app_context():
         doc = Doctor.query.filter_by(email="testdoc@example.com").first()
         if not doc:
@@ -71,30 +125,141 @@ def auth_headers(client):
         "email": "testdoc@example.com",
         "password": "TestPass123",
     })
-    token = resp.get_json()["token"]
+    data = resp.get_json()
+    token = data["token"]
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
+# ═══════════════════════════════════════════
+# SEED DATA  (mirrors real ingestion output)
+# ═══════════════════════════════════════════
+
+_FAERS_REACTIONS = json.dumps([
+    {"reaction": "NAUSEA", "count": 29316},
+    {"reaction": "DIARRHOEA", "count": 27324},
+    {"reaction": "BLOOD GLUCOSE INCREASED", "count": 27460},
+    {"reaction": "DRUG INEFFECTIVE", "count": 22203},
+    {"reaction": "FATIGUE", "count": 20905},
+])
+
+
 def _seed_test_data():
-    """Insert minimal test data."""
-    src = Source(source_id=1, authority="FDA", document_title="Test FDA Label", publication_year=2023, url="https://example.com")
-    _db.session.add(src)
+    """Insert complete test data covering all model fields."""
+    # ── Sources ──
+    src_fda = Source(
+        source_id=1, authority="FDA",
+        document_title="FDA Drug Label – Metformin",
+        publication_year=2024,
+        url="https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=test",
+        effective_date="2024-08-21",
+    )
+    src_cms = Source(
+        source_id=2, authority="CMS",
+        document_title="NADAC Weekly Price – Metformin",
+        publication_year=2024,
+        url="https://data.medicaid.gov/dataset/dfa2ab14",
+    )
+    src_fda2 = Source(
+        source_id=3, authority="FDA",
+        document_title="FDA Drug Label – Lisinopril",
+        publication_year=2023,
+        url="https://example.com/lisinopril",
+    )
+    _db.session.add_all([src_fda, src_cms, src_fda2])
     _db.session.flush()
 
-    drug = Drug(id=1, generic_name="Metformin", brand_names=["Glucophage"], drug_class="Biguanide",
-                mechanism_of_action="Decreases hepatic glucose production.", source_id=1)
-    _db.session.add(drug)
-
-    drug2 = Drug(id=2, generic_name="Lisinopril", brand_names=["Zestril"], drug_class="ACE Inhibitor",
-                 mechanism_of_action="Inhibits ACE.", source_id=1)
-    _db.session.add(drug2)
+    # ── Drugs ──
+    drug1 = Drug(
+        id=1, generic_name="Metformin",
+        brand_names=["Glucophage", "Janumet"],
+        drug_class="Biguanide",
+        mechanism_of_action="Decreases hepatic glucose production.",
+        source_id=1,
+    )
+    drug2 = Drug(
+        id=2, generic_name="Lisinopril",
+        brand_names=["Zestril", "Prinivil"],
+        drug_class="ACE Inhibitor",
+        mechanism_of_action="Inhibits angiotensin-converting enzyme.",
+        source_id=3,
+    )
+    _db.session.add_all([drug1, drug2])
     _db.session.flush()
 
+    # ── Indications ──
     _db.session.add(Indication(drug_id=1, approved_use="Type 2 diabetes mellitus.", source_id=1))
-    _db.session.add(DosageGuideline(drug_id=1, adult_dosage="500mg twice daily", renal_adjustment="eGFR <30: Contraindicated", source_id=1))
-    _db.session.add(SafetyWarning(drug_id=1, contraindications="Severe renal impairment", black_box_warnings="Lactic acidosis risk", pregnancy_risk="Category B", lactation_risk="Compatible", source_id=1))
-    _db.session.add(SafetyWarning(drug_id=2, contraindications="History of angioedema", black_box_warnings="Fetal toxicity", pregnancy_risk="Category D", lactation_risk="Not recommended", source_id=1))
-    _db.session.add(DrugInteraction(drug_id=1, interacting_drug="Alcohol", severity="major", description="Increases lactic acidosis risk.", source_id=1))
-    _db.session.add(DrugInteraction(drug_id=2, interacting_drug="Metformin", severity="minor", description="May enhance hypoglycemic effect.", source_id=1))
-    _db.session.add(Pricing(drug_id=1, approximate_cost="$4-30/month", generic_available=True, source_id=1))
-    _db.session.add(Reimbursement(drug_id=1, scheme_name="Medicare Part D", coverage_notes="Tier 1 preferred generic.", source_id=1))
+    _db.session.add(Indication(drug_id=2, approved_use="Hypertension.", source_id=3))
+
+    # ── Dosage Guidelines ──
+    _db.session.add(DosageGuideline(
+        drug_id=1, adult_dosage="500mg twice daily",
+        renal_adjustment="eGFR <30: Contraindicated", source_id=1,
+    ))
+    _db.session.add(DosageGuideline(
+        drug_id=2, adult_dosage="10mg once daily",
+        renal_adjustment="CrCl <30: reduce dose", source_id=3,
+    ))
+
+    # ── Safety Warnings (with FAERS data for Metformin) ──
+    _db.session.add(SafetyWarning(
+        drug_id=1,
+        contraindications="Severe renal impairment (eGFR <30 mL/min/1.73 m²).",
+        black_box_warnings="Lactic acidosis: a rare but serious metabolic complication.",
+        pregnancy_risk="Category B",
+        lactation_risk="Compatible with breastfeeding.",
+        adverse_event_count=428835,
+        adverse_event_serious_count=285519,
+        top_adverse_reactions=_FAERS_REACTIONS,
+        source_id=1,
+    ))
+    _db.session.add(SafetyWarning(
+        drug_id=2,
+        contraindications="History of angioedema with prior ACE inhibitor use.",
+        black_box_warnings="Fetal toxicity. Discontinue when pregnancy detected.",
+        pregnancy_risk="Category D",
+        lactation_risk="Not recommended during breastfeeding.",
+        adverse_event_count=None,
+        adverse_event_serious_count=None,
+        top_adverse_reactions=None,
+        source_id=3,
+    ))
+
+    # ── Drug Interactions ──
+    _db.session.add(DrugInteraction(
+        drug_id=1, interacting_drug="Alcohol", severity="major",
+        description="Increases lactic acidosis risk.", source_id=1,
+    ))
+    _db.session.add(DrugInteraction(
+        drug_id=1, interacting_drug="Lisinopril", severity="minor",
+        description="May enhance hypoglycemic effect.", source_id=1,
+    ))
+    _db.session.add(DrugInteraction(
+        drug_id=2, interacting_drug="Metformin", severity="minor",
+        description="May enhance hypoglycemic effect.", source_id=3,
+    ))
+
+    # ── Pricing (with NADAC data for Metformin) ──
+    _db.session.add(Pricing(
+        drug_id=1,
+        approximate_cost="$0.02/EA → ~$0.60–$1.80/month (METFORMIN HCL 500 MG)",
+        generic_available=True,
+        nadac_per_unit=0.02123,
+        nadac_ndc="00228200310",
+        nadac_effective_date="2024-12-04",
+        nadac_package_description="METFORMIN HCL 500 MG TABLET",
+        pricing_source="NADAC",
+        source_id=2,
+    ))
+    _db.session.add(Pricing(
+        drug_id=2,
+        approximate_cost="$5-$15/month estimated",
+        generic_available=True,
+        pricing_source="estimate",
+        source_id=3,
+    ))
+
+    # ── Reimbursement ──
+    _db.session.add(Reimbursement(
+        drug_id=1, scheme_name="Medicare Part D",
+        coverage_notes="Tier 1 preferred generic.", source_id=1,
+    ))

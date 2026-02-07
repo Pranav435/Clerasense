@@ -1,11 +1,13 @@
 """
 Drug information routes – CRUD + search endpoints.
 All responses include source citations.
+Uses the central drug_lookup_service for consistent data access.
 """
 
 from flask import Blueprint, request, jsonify
 from app.database import db
 from app.models.models import Drug
+from app.services.drug_lookup_service import lookup_drug, search_drugs as central_search
 
 drugs_bp = Blueprint("drugs", __name__)
 
@@ -16,18 +18,15 @@ def list_drugs():
     q = request.args.get("q", "").strip().lower()
     drug_class = request.args.get("class", "").strip().lower()
 
-    query = Drug.query
     if q:
-        query = query.filter(
-            db.or_(
-                Drug.generic_name.ilike(f"%{q}%"),
-                Drug.brand_names.any(q),
-            )
-        )
-    if drug_class:
-        query = query.filter(Drug.drug_class.ilike(f"%{drug_class}%"))
-
-    drugs = query.order_by(Drug.generic_name).all()
+        # Use central search which can also discover drugs from external APIs
+        drugs = central_search(q)
+        if drug_class:
+            drugs = [d for d in drugs if d.drug_class and drug_class in d.drug_class.lower()]
+    elif drug_class:
+        drugs = Drug.query.filter(Drug.drug_class.ilike(f"%{drug_class}%")).order_by(Drug.generic_name).all()
+    else:
+        drugs = Drug.query.order_by(Drug.generic_name).all()
     return jsonify({"drugs": [d.to_dict() for d in drugs]}), 200
 
 
@@ -42,8 +41,11 @@ def get_drug(drug_id):
 
 @drugs_bp.route("/by-name/<string:name>", methods=["GET"])
 def get_drug_by_name(name):
-    """Lookup drug by generic name (case-insensitive)."""
-    drug = Drug.query.filter(Drug.generic_name.ilike(name)).first()
+    """
+    Lookup drug by generic name (case-insensitive).
+    Triggers on-demand ingestion if not in DB.
+    """
+    drug = lookup_drug(name)
     if not drug:
-        return jsonify({"error": f"Drug '{name}' not found in verified database."}), 404
+        return jsonify({"error": f"Drug '{name}' not found in verified sources."}), 404
     return jsonify({"drug": drug.to_dict(include_details=True)}), 200

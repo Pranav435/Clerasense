@@ -9,3 +9,5 @@ openai>=1.12
 numpy>=1.26
 bcrypt>=4.1
 pytest>=8.0
+requests>=2.31
+apscheduler>=3.10

@@ -1,11 +1,11 @@
 """
 Drug comparison route – compare 2-4 drugs on fixed factual dimensions.
 No ranking. No recommendations.
+Uses the central drug_lookup_service for consistent data access.
 """
 
 from flask import Blueprint, request, jsonify
-from app.database import db
-from app.models.models import Drug
+from app.services.drug_lookup_service import lookup_drugs
 
 comparison_bp = Blueprint("comparison", __name__)
 
@@ -15,6 +15,10 @@ def compare_drugs():
     """
     Compare 2–4 drugs on fixed factual dimensions.
     Body: { "drug_names": ["Metformin", "Lisinopril"] }
+
+    If a drug is not in the local database, it is automatically
+    fetched from verified public APIs (OpenFDA, DailyMed, RxNorm),
+    cross-verified, and inserted before comparison.
     """
     data = request.get_json(force=True)
     drug_names = data.get("drug_names", [])
@@ -24,14 +28,8 @@ def compare_drugs():
     if len(drug_names) > 4:
         return jsonify({"error": "Comparison is limited to a maximum of 4 drugs."}), 400
 
-    results = []
-    not_found = []
-    for name in drug_names:
-        drug = Drug.query.filter(Drug.generic_name.ilike(name.strip())).first()
-        if not drug:
-            not_found.append(name)
-            continue
-        results.append(drug.to_dict(include_details=True))
+    drugs_found, not_found = lookup_drugs(drug_names)
+    results = [drug.to_dict(include_details=True) for drug in drugs_found]
 
     disclaimer = (
         "This comparison presents factual, source-backed information only. "

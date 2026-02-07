@@ -59,7 +59,7 @@ const ComparisonModule = (() => {
         }
 
         const resultsEl = document.getElementById('cmp-results');
-        resultsEl.innerHTML = '<div class="loading">Loading comparison…</div>';
+        resultsEl.innerHTML = '<div class="loading">Loading comparison… If a drug is new, it may take a moment to fetch from verified sources.</div>';
 
         const data = await API.compareDrugs(names);
 
@@ -86,6 +86,7 @@ const ComparisonModule = (() => {
             { key: 'safety_warnings', label: 'Key Safety Warnings', format: 'safety' },
             { key: 'interactions', label: 'Notable Interactions', format: 'interactions' },
             { key: 'pricing', label: 'Approximate Cost', format: 'pricing' },
+            { key: 'source', label: 'Data Source', format: 'source' },
         ];
 
         let html = '<table class="comparison-table"><thead><tr>';
@@ -142,8 +143,33 @@ const ComparisonModule = (() => {
                     .join('<br>') || 'None documented';
             case 'pricing':
                 return (drug.pricing || [])
-                    .map(p => p.approximate_cost || 'N/A')
+                    .map(p => {
+                        let text = p.approximate_cost || 'N/A';
+                        if (p.pricing_source === 'NADAC' && p.nadac_per_unit) {
+                            text += `<br><span style="font-size:10px;color:#1e8449;">NADAC: $${p.nadac_per_unit.toFixed(4)}/unit</span>`;
+                        }
+                        if (p.pricing_source) {
+                            const badge = p.pricing_source === 'NADAC'
+                                ? '<span style="font-size:9px;padding:1px 4px;background:#d5f5e3;color:#1e8449;border-radius:2px;">CMS NADAC</span>'
+                                : '<span style="font-size:9px;padding:1px 4px;background:#fdebd0;color:#b7950b;border-radius:2px;">Estimate</span>';
+                            text += `<br>${badge}`;
+                        }
+                        return text;
+                    })
                     .join('<br>') || 'N/A';
+            case 'source':
+                if (drug.source) {
+                    const authority = drug.source.authority || '';
+                    const badgeColors = { 'FDA': '#1a5276', 'NIH/NLM': '#196f3d', 'CMS': '#7d3c98' };
+                    const color = badgeColors[authority] || '#555';
+                    const effDate = drug.source.effective_date ? `<br>Label: ${drug.source.effective_date}` : '';
+                    const retrieved = drug.source.data_retrieved_at ? `<br>Fetched: ${new Date(drug.source.data_retrieved_at).toLocaleDateString()}` : '';
+                    return `<span style="display:inline-block;padding:1px 4px;background:${color};color:#fff;border-radius:2px;font-size:9px;">${authority}</span>
+                        <span style="font-size:10px;"> ${drug.source.document_title || ''} (${drug.source.publication_year || ''})</span>
+                        ${effDate}${retrieved}
+                        ${drug.source.url ? `<br><a href="${drug.source.url}" target="_blank" rel="noopener" style="font-size:10px;color:${color};">Verify ↗</a>` : ''}`;
+                }
+                return 'N/A';
             default:
                 return drug[dim.key] || 'N/A';
         }

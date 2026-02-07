@@ -1,11 +1,11 @@
 """
 Pricing & reimbursement routes.
 Returns cost estimates, generic availability, and government scheme coverage.
+Uses the central drug_lookup_service for consistent data access.
 """
 
 from flask import Blueprint, request, jsonify
-from app.database import db
-from app.models.models import Drug
+from app.services.drug_lookup_service import lookup_drug
 
 pricing_bp = Blueprint("pricing", __name__)
 
@@ -18,10 +18,16 @@ PRICING_DISCLAIMER = (
 
 @pricing_bp.route("/<string:drug_name>", methods=["GET"])
 def get_pricing(drug_name):
-    """Get pricing and reimbursement info for a drug by generic name."""
-    drug = Drug.query.filter(Drug.generic_name.ilike(drug_name.strip())).first()
+    """
+    Get pricing and reimbursement info for a drug by generic name.
+
+    If the drug is not in the local database, it is automatically
+    fetched from verified public APIs, cross-verified, and inserted
+    before returning pricing data.
+    """
+    drug = lookup_drug(drug_name)
     if not drug:
-        return jsonify({"error": f"Drug '{drug_name}' not found in verified database."}), 404
+        return jsonify({"error": f"Drug '{drug_name}' not found in verified sources."}), 404
 
     pricing_data = [p.to_dict() for p in drug.pricing]
     reimbursement_data = [r.to_dict() for r in drug.reimbursements]

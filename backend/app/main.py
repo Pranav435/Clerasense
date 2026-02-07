@@ -19,6 +19,7 @@ from app.routes.comparison import comparison_bp
 from app.routes.safety import safety_bp
 from app.routes.pricing import pricing_bp
 from app.routes.auth import auth_bp
+from app.routes.ingestion import ingestion_bp
 from app.middleware.auth_middleware import jwt_required_middleware
 from app.middleware.audit_logger import audit_after_request
 
@@ -58,11 +59,25 @@ def create_app() -> Flask:
     app.register_blueprint(comparison_bp, url_prefix="/api/comparison")
     app.register_blueprint(safety_bp, url_prefix="/api/safety")
     app.register_blueprint(pricing_bp, url_prefix="/api/pricing")
+    app.register_blueprint(ingestion_bp, url_prefix="/api/ingestion")
 
     # Health check
     @app.route("/api/health")
     def health():
         return {"status": "ok", "service": "clerasense"}
+
+    # ---------- Background drug ingestion ----------
+    # Start the background scheduler for continuous data ingestion
+    from app.services.background_scheduler import init_scheduler, run_initial_ingestion
+    import threading
+
+    def _start_background_tasks():
+        """Run initial ingestion in a background thread to avoid blocking startup."""
+        run_initial_ingestion(app)
+
+    init_scheduler(app)
+    # Run initial bootstrap in a background thread so the server starts immediately
+    threading.Thread(target=_start_background_tasks, daemon=True).start()
 
     # ---------- Serve frontend static files ----------
     @app.route("/")

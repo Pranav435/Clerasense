@@ -15,6 +15,8 @@ class Source(db.Model):
     document_title = db.Column(db.String(512), nullable=False)
     publication_year = db.Column(db.Integer)
     url = db.Column(db.Text)
+    effective_date = db.Column(db.String(20))     # Label effective date
+    data_retrieved_at = db.Column(db.DateTime)     # When data was fetched
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -24,6 +26,8 @@ class Source(db.Model):
             "document_title": self.document_title,
             "publication_year": self.publication_year,
             "url": self.url,
+            "effective_date": self.effective_date,
+            "data_retrieved_at": self.data_retrieved_at.isoformat() if self.data_retrieved_at else None,
         }
 
 
@@ -115,19 +119,32 @@ class SafetyWarning(db.Model):
     drug_id = db.Column(db.Integer, db.ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False)
     contraindications = db.Column(db.Text)
     black_box_warnings = db.Column(db.Text)
-    pregnancy_risk = db.Column(db.String(50))
-    lactation_risk = db.Column(db.String(50))
+    pregnancy_risk = db.Column(db.Text)
+    lactation_risk = db.Column(db.Text)
+    adverse_event_count = db.Column(db.Integer)         # FAERS total reports
+    adverse_event_serious_count = db.Column(db.Integer) # FAERS serious reports
+    top_adverse_reactions = db.Column(db.Text)           # JSON string of top reactions
     source_id = db.Column(db.Integer, db.ForeignKey("sources.source_id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     source = db.relationship("Source", lazy="joined")
 
     def to_dict(self):
+        import json
+        top_reactions = []
+        if self.top_adverse_reactions:
+            try:
+                top_reactions = json.loads(self.top_adverse_reactions)
+            except (json.JSONDecodeError, TypeError):
+                pass
         return {
             "contraindications": self.contraindications,
             "black_box_warnings": self.black_box_warnings,
             "pregnancy_risk": self.pregnancy_risk,
             "lactation_risk": self.lactation_risk,
+            "adverse_event_count": self.adverse_event_count,
+            "adverse_event_serious_count": self.adverse_event_serious_count,
+            "top_adverse_reactions": top_reactions,
             "source": self.source.to_dict() if self.source else None,
         }
 
@@ -159,8 +176,13 @@ class Pricing(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     drug_id = db.Column(db.Integer, db.ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False)
-    approximate_cost = db.Column(db.String(100))
+    approximate_cost = db.Column(db.Text)          # Human-readable cost description
     generic_available = db.Column(db.Boolean, default=False)
+    nadac_per_unit = db.Column(db.Float)           # NADAC price per unit in USD
+    nadac_ndc = db.Column(db.String(20))           # National Drug Code
+    nadac_effective_date = db.Column(db.String(20))  # NADAC pricing date
+    nadac_package_description = db.Column(db.Text) # NDC package description
+    pricing_source = db.Column(db.String(50))      # 'NADAC', 'estimate', etc.
     source_id = db.Column(db.Integer, db.ForeignKey("sources.source_id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -170,6 +192,11 @@ class Pricing(db.Model):
         return {
             "approximate_cost": self.approximate_cost,
             "generic_available": self.generic_available,
+            "nadac_per_unit": self.nadac_per_unit,
+            "nadac_ndc": self.nadac_ndc,
+            "nadac_effective_date": self.nadac_effective_date,
+            "nadac_package_description": self.nadac_package_description,
+            "pricing_source": self.pricing_source,
             "source": self.source.to_dict() if self.source else None,
         }
 
@@ -240,4 +267,18 @@ class Embedding(db.Model):
     field_name = db.Column(db.String(100))
     embedding = db.Column(db.ARRAY(db.Float), nullable=False)
     model_name = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class IngestionLog(db.Model):
+    __tablename__ = "ingestion_log"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    drug_name = db.Column(db.String(255), nullable=False)
+    source_api = db.Column(db.String(100), nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+    confidence = db.Column(db.Float, default=0)
+    sources_used = db.Column(db.ARRAY(db.Text), default=[])
+    conflicts = db.Column(db.Text)
+    details = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

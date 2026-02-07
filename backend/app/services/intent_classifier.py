@@ -42,11 +42,12 @@ UNSAFE_INTENTS = {
 
 DIAGNOSIS_PATTERNS = [
     r"\bdiagnos[ei]s?\b",
-    r"\bwhat\s+(disease|condition|disorder)\s+(do\s+i|does?\s+(the\s+)?patient)\b",
+    r"\bwhat\s+(disease|condition|disorder)\s+(do\s+i|does?\s+((the|this|my)\s+)?patient)\b",
     r"\bwhat('s|s)\s+wrong\s+with\b",
     r"\bidentify\s+the\s+(disease|condition)\b",
     r"\bcould\s+(this|it)\s+be\b.*\b(disease|syndrome|disorder)\b",
     r"\bpatient\s+has\s+(symptoms?)\b.*\bwhat\b",
+    r"\bwhat\s+(disease|condition|disorder)\b.*\bpatient\s+have\b",
 ]
 
 TREATMENT_REC_PATTERNS = [
@@ -61,10 +62,11 @@ TREATMENT_REC_PATTERNS = [
 BEST_DRUG_PATTERNS = [
     r"\bbest\s+(drug|medicine|medication)\b",
     r"\bwhich\s+(drug|medicine)\s+(is|would\s+be)\s+(best|better|superior|preferred)\b",
-    r"\bmost\s+effective\s+(drug|medicine|medication)\b",
+    r"\bmost\s+effective\s+(drug|medicine|medication|for)\b",
     r"\brecommend\s+(a\s+)?(drug|medicine)\b",
     r"\bshould\s+(i|we)\s+(choose|pick|select|use)\b",
     r"\btop\s+(drug|medicine|choice)\b",
+    r"\bwhich\s+(medicine|drug|medication)\s+is\s+most\b",
 ]
 
 PRESCRIPTION_PATTERNS = [
@@ -77,9 +79,11 @@ PRESCRIPTION_PATTERNS = [
 DOSE_PERSONAL_PATTERNS = [
     r"\bwhat\s+dose\s+(should|for)\s+(this|my|the)\s+patient\b",
     r"\bhow\s+much\s+should\s+(this|my)\s+patient\s+take\b",
-    r"\badjust\s+(the\s+)?dose\s+for\s+(this|my)\b",
+    r"\badjust\s+(the\s+)?dos(e|age)\s+for\b",
     r"\bpersonali[sz]e\s+(the\s+)?dos(age|e)\b",
     r"\bfor\s+(a\s+)?\d+\s*(kg|lb|year|yo)\b.*\b(dose|dosage)\b",
+    r"\b(dose|dosage)\b.*\bfor\s+(a\s+)?\d+\s*(kg|lb|year|yo)\b",
+    r"\bwhat\s+dose\s+should\s+my\b",
 ]
 
 PATIENT_ADVICE_PATTERNS = [
@@ -122,9 +126,9 @@ INTERACTION_PATTERNS = [
 
 SAFETY_PATTERNS = [
     r"\b(safe|safety)\b",
-    r"\bside\s+effect\b",
-    r"\bwarning\b",
-    r"\bcontraindication\b",
+    r"\bside\s+effects?\b",
+    r"\bwarnings?\b",
+    r"\bcontraindications?\b",
     r"\bblack\s+box\b",
     r"\bpregnancy\b",
     r"\blactation\b",

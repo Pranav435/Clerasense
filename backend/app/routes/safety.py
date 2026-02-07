@@ -2,11 +2,11 @@
 Prescription safety checker route.
 Checks contraindications, drug-drug interactions, and safety warnings.
 This is an information tool — NOT a prescription generator.
+Uses the central drug_lookup_service for consistent data access.
 """
 
 from flask import Blueprint, request, jsonify
-from app.database import db
-from app.models.models import Drug, DrugInteraction, SafetyWarning
+from app.services.drug_lookup_service import lookup_drugs
 
 safety_bp = Blueprint("safety", __name__)
 
@@ -25,6 +25,10 @@ def check_safety():
         "drug_names": ["Metformin", "Lisinopril"],
         "context": { "pregnancy": true, "renal_impairment": true }
     }
+
+    If a drug is not in the local database, it is automatically
+    fetched from verified public APIs, cross-verified, and inserted
+    before running safety checks.
     """
     data = request.get_json(force=True)
     drug_names = data.get("drug_names", [])
@@ -33,14 +37,7 @@ def check_safety():
     if not drug_names:
         return jsonify({"error": "Provide at least one drug name."}), 400
 
-    drugs_found = []
-    not_found = []
-    for name in drug_names:
-        drug = Drug.query.filter(Drug.generic_name.ilike(name.strip())).first()
-        if drug:
-            drugs_found.append(drug)
-        else:
-            not_found.append(name)
+    drugs_found, not_found = lookup_drugs(drug_names)
 
     # 1. Collect all warnings
     warnings = []

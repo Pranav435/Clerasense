@@ -56,8 +56,8 @@ CREATE TABLE IF NOT EXISTS safety_warnings (
     drug_id             INT NOT NULL REFERENCES drugs(id) ON DELETE CASCADE,
     contraindications   TEXT,
     black_box_warnings  TEXT,
-    pregnancy_risk      VARCHAR(50),
-    lactation_risk      VARCHAR(50),
+    pregnancy_risk      TEXT,
+    lactation_risk      TEXT,
     source_id           INT NOT NULL REFERENCES sources(source_id),
     created_at          TIMESTAMP DEFAULT NOW()
 );
@@ -137,3 +137,19 @@ CREATE TABLE IF NOT EXISTS embeddings (
     created_at  TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX idx_embeddings_entity ON embeddings(entity_type, entity_id);
+
+-- Ingestion log – tracks background data ingestion from public APIs
+CREATE TABLE IF NOT EXISTS ingestion_log (
+    id              SERIAL PRIMARY KEY,
+    drug_name       VARCHAR(255) NOT NULL,
+    source_api      VARCHAR(100) NOT NULL,
+    status          VARCHAR(50) NOT NULL CHECK (status IN ('fetched','verified','ingested','failed','skipped','unverified')),
+    confidence      FLOAT DEFAULT 0,
+    sources_used    TEXT[] DEFAULT '{}',
+    conflicts       TEXT,
+    details         TEXT,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_ingestion_drug ON ingestion_log(drug_name);
+CREATE INDEX idx_ingestion_status ON ingestion_log(status);
+CREATE INDEX idx_ingestion_created ON ingestion_log(created_at);

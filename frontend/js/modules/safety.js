@@ -1,6 +1,7 @@
 /**
  * Clerasense – Safety Checker Module
- * Checks contraindications, drug interactions, and safety warnings.
+ * Enhanced with real-time adverse event data (FDA FAERS)
+ * and detailed per-field source attribution.
  * Information tool only — NOT a prescription review or approval system.
  */
 
@@ -14,7 +15,8 @@ const SafetyModule = (() => {
                     <p>Check for contraindications, interactions, and safety warnings across multiple drugs.</p>
                 </div>
                 <div class="disclaimer-banner">
-                    ⚠️ DISCLAIMER: This tool provides informational alerts from verified regulatory sources.
+                    ⚠️ DISCLAIMER: This tool provides informational alerts from verified regulatory sources
+                    (FDA, NIH/NLM, CMS NADAC, FDA FAERS).
                     It is NOT a substitute for clinical judgment. The prescribing physician is solely
                     responsible for all prescribing decisions.
                 </div>
@@ -65,7 +67,7 @@ const SafetyModule = (() => {
         };
 
         const resultsEl = document.getElementById('safety-results');
-        resultsEl.innerHTML = '<div class="loading">Running safety checks…</div>';
+        resultsEl.innerHTML = '<div class="loading">Checking safety across FDA, DailyMed, FAERS & NADAC… may take a moment for new drugs.</div>';
 
         const data = await API.checkSafety(drugNames, context);
 
@@ -75,6 +77,72 @@ const SafetyModule = (() => {
         }
 
         renderSafetyResults(data, resultsEl);
+    }
+
+    function renderSourceBadge(source) {
+        if (!source) return '';
+        const authority = source.authority || 'Unknown';
+        const badgeColors = {
+            'FDA': '#1a5276',
+            'NIH/NLM': '#196f3d',
+            'CMS': '#7d3c98',
+        };
+        const color = badgeColors[authority] || '#555';
+        const title = source.document_title || '';
+        const year = source.publication_year || '';
+        const url = source.url || '';
+        const effDate = source.effective_date ? ` | Label effective: ${source.effective_date}` : '';
+        const retrieved = source.data_retrieved_at
+            ? ` | Fetched: ${new Date(source.data_retrieved_at).toLocaleDateString()}`
+            : '';
+
+        return `<div class="source-attribution" style="margin-top:8px;padding:6px 10px;background:#f8f9fa;border-left:3px solid ${color};border-radius:4px;font-size:11px;line-height:1.4;">
+            <span style="display:inline-block;padding:1px 6px;background:${color};color:#fff;border-radius:3px;font-size:10px;font-weight:600;margin-right:6px;">${authority}</span>
+            <span>${title} (${year}${effDate}${retrieved})</span>
+            ${url ? ` <a href="${url}" target="_blank" rel="noopener" style="color:${color};margin-left:6px;">Verify Source ↗</a>` : ''}
+        </div>`;
+    }
+
+    function renderAdverseEvents(warning) {
+        const count = warning.adverse_event_count;
+        const serious = warning.adverse_event_serious_count;
+        const reactions = warning.top_adverse_reactions || [];
+
+        if (count === null && count === undefined && !reactions.length) return '';
+        if (!count && !reactions.length) return '';
+
+        let html = '<div style="margin-top:12px;padding:10px;background:#fdf2e9;border-radius:6px;">';
+        html += '<strong style="font-size:13px;">📊 FDA Adverse Event Reports (FAERS – Real-Time)</strong>';
+
+        if (count !== null && count !== undefined) {
+            const seriousPct = serious && count ? ((serious / count) * 100).toFixed(1) : '—';
+            html += `<div style="display:flex;gap:20px;margin:8px 0;flex-wrap:wrap;">
+                <div style="text-align:center;">
+                    <div style="font-size:18px;font-weight:700;color:#e67e22;">${count.toLocaleString()}</div>
+                    <div style="font-size:10px;color:#666;">Total Reports</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:18px;font-weight:700;color:#c0392b;">${serious ? serious.toLocaleString() : '—'}</div>
+                    <div style="font-size:10px;color:#666;">Serious Reports</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:18px;font-weight:700;color:#c0392b;">${seriousPct}%</div>
+                    <div style="font-size:10px;color:#666;">Serious Rate</div>
+                </div>
+            </div>`;
+        }
+
+        if (reactions.length) {
+            html += '<div style="margin-top:6px;"><strong style="font-size:11px;">Top Reported Reactions:</strong><ul style="margin:4px 0;padding-left:18px;">';
+            for (const r of reactions.slice(0, 10)) {
+                html += `<li style="font-size:11px;margin:2px 0;">${r.reaction} <span style="color:#888;">(${r.count.toLocaleString()} reports)</span></li>`;
+            }
+            html += '</ul></div>';
+        }
+
+        html += `<div style="font-size:10px;color:#888;margin-top:4px;">Source: FDA Adverse Event Reporting System (FAERS) — real-time data from <a href="https://open.fda.gov/apis/drug/event/" target="_blank" rel="noopener">open.fda.gov</a></div>`;
+        html += '</div>';
+        return html;
     }
 
     function renderSafetyResults(data, container) {
@@ -101,7 +169,7 @@ const SafetyModule = (() => {
                             <span class="drug-tag">${alert.severity.toUpperCase()}</span>
                         </div>
                         <p>${alert.description}</p>
-                        ${renderSource(alert.source)}
+                        ${renderSourceBadge(alert.source)}
                     </div>
                 `;
             });
@@ -117,26 +185,42 @@ const SafetyModule = (() => {
                             🚨 ${alert.drug} — ${formatAlertType(alert.alert_type)}
                         </div>
                         <p>${alert.detail || alert.risk_category || ''}</p>
-                        ${renderSource(alert.source)}
+                        ${renderSourceBadge(alert.source)}
                     </div>
                 `;
             });
         }
 
-        // Safety warnings
+        // Safety warnings per drug
         if (data.safety_warnings && data.safety_warnings.length) {
             html += '<h3 class="section-heading">Safety Warnings</h3>';
             data.safety_warnings.forEach(w => {
-                html += `
-                    <div class="alert-card severity-moderate">
-                        <div class="alert-title">${w.drug}</div>
-                        ${w.contraindications ? `<p><strong>Contraindications:</strong> ${w.contraindications}</p>` : ''}
-                        ${w.black_box_warnings ? `<p><strong>Black Box Warning:</strong> ${w.black_box_warnings}</p>` : ''}
-                        ${w.pregnancy_risk ? `<p><strong>Pregnancy:</strong> ${w.pregnancy_risk}</p>` : ''}
-                        ${w.lactation_risk ? `<p><strong>Lactation:</strong> ${w.lactation_risk}</p>` : ''}
-                        ${renderSource(w.source)}
-                    </div>
-                `;
+                html += `<div class="alert-card severity-moderate">`;
+                html += `<div class="alert-title">⚕️ ${w.drug}</div>`;
+
+                if (w.black_box_warnings) {
+                    html += `<div style="background:#fdedec;border:1px solid #e74c3c;border-radius:4px;padding:8px;margin:8px 0;">
+                        <strong style="color:#c0392b;">⛔ BLACK BOX WARNING</strong>
+                        <p style="margin:4px 0;font-size:12px;">${truncate(w.black_box_warnings, 800)}</p>
+                    </div>`;
+                }
+
+                if (w.contraindications) {
+                    html += `<p><strong>🚫 Contraindications:</strong> ${truncate(w.contraindications, 800)}</p>`;
+                }
+                if (w.pregnancy_risk) {
+                    html += `<p><strong>🤰 Pregnancy:</strong> ${truncate(w.pregnancy_risk, 500)}</p>`;
+                }
+                if (w.lactation_risk) {
+                    html += `<p><strong>🍼 Lactation:</strong> ${truncate(w.lactation_risk, 500)}</p>`;
+                }
+
+                // Adverse events from FAERS (new!)
+                html += renderAdverseEvents(w);
+
+                // Source attribution with badges
+                html += renderSourceBadge(w.source);
+                html += `</div>`;
             });
         }
 
@@ -169,12 +253,9 @@ const SafetyModule = (() => {
         return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
 
-    function renderSource(source) {
-        if (!source) return '';
-        return `<div class="alert-source">
-            📄 ${source.authority} — ${source.document_title} (${source.publication_year || ''})
-            ${source.url ? `<a href="${source.url}" target="_blank" rel="noopener" class="source-link">View ↗</a>` : ''}
-        </div>`;
+    function truncate(str, max) {
+        if (!str) return '';
+        return str.length > max ? str.substring(0, max) + '…' : str;
     }
 
     function updateWarningsPanel(data) {
