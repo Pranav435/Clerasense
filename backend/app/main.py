@@ -44,7 +44,7 @@ def create_app() -> Flask:
 
     # Create tables if they don't already exist
     with app.app_context():
-        import app.models.models  # noqa: F401 – ensure all models are registered
+        from app.models import models as _models  # noqa: F401 – ensure all models are registered
         db.create_all()
 
     # Middleware
