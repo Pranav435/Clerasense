@@ -375,7 +375,11 @@ class OpenFDASource(DrugDataSource):
 
         # Build source URL — link to specific DailyMed drug page
         spl_id = openfda.get("spl_id", [""])[0] if openfda.get("spl_id") else ""
-        source_url = f"https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid={spl_id}" if spl_id else f"https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22{generic_name}%22"
+        if spl_id:
+            source_url = f"https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid={spl_id}"
+        else:
+            # Fallback: DailyMed search page for this drug (user-friendly)
+            source_url = f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={generic_name}"
 
         # Extract effective date from label
         effective_date, source_year = _parse_effective_date(label)

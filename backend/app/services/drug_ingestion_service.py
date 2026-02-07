@@ -130,10 +130,11 @@ def _insert_verified_drug(data: NormalizedDrugData, verification: VerificationRe
         additional_sources = {}
         for src_name in verification.sources_used:
             if src_name != data.source_authority:
+                alt_url = verification.all_source_urls.get(src_name, "")
                 alt_source = _get_or_create_source(
                     authority=src_name,
                     document_title=f"{src_name} – {data.generic_name}",
-                    url="",
+                    url=alt_url,
                     year=data.source_year,
                 )
                 additional_sources[src_name] = alt_source
@@ -207,10 +208,11 @@ def _insert_verified_drug(data: NormalizedDrugData, verification: VerificationRe
 
         # If we have NADAC data, create a NADAC source for pricing
         if data.nadac_per_unit:
+            nadac_url = f"https://data.medicaid.gov/dataset/dfa2ab14-06c2-457a-9e36-5cb6d80f8d93?conditions[0][property]=ndc_description&conditions[0][value]={data.generic_name.upper()}&conditions[0][operator]=contains"
             nadac_src = _get_or_create_source(
                 authority="CMS",
                 document_title=f"NADAC Weekly Price – {data.generic_name}",
-                url="https://data.medicaid.gov/dataset/dfa2ab14-06c2-457a-9e36-5cb6d80f8d93",
+                url=nadac_url,
                 year=data.source_year,
                 data_retrieved_at=data.data_retrieved_at,
             )

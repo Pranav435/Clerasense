@@ -39,6 +39,34 @@ def get_drug(drug_id):
     return jsonify({"drug": drug.to_dict(include_details=True)}), 200
 
 
+@drugs_bp.route("/autocomplete", methods=["GET"])
+def autocomplete_drugs():
+    """Return up to 8 drug names matching a prefix (lightweight, no details)."""
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify({"suggestions": []}), 200
+    matches = (
+        Drug.query
+        .filter(Drug.generic_name.ilike(f"%{q}%"))
+        .order_by(
+            # Prefer prefix matches first, then contains
+            db.case(
+                (Drug.generic_name.ilike(f"{q}%"), 0),
+                else_=1,
+            ),
+            Drug.generic_name,
+        )
+        .limit(8)
+        .all()
+    )
+    return jsonify({
+        "suggestions": [
+            {"name": d.generic_name, "drug_class": d.drug_class or ""}
+            for d in matches
+        ]
+    }), 200
+
+
 @drugs_bp.route("/by-name/<string:name>", methods=["GET"])
 def get_drug_by_name(name):
     """

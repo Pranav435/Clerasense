@@ -222,7 +222,7 @@ class NADACSource(DrugDataSource):
             nadac_package_description=pricing_info.get("ndc_description", ""),
             source_authority="CMS",
             source_document_title=f"NADAC Weekly Price – {generic_name.title()}",
-            source_url=f"https://data.medicaid.gov/dataset/dfa2ab14-06c2-457a-9e36-5cb6d80f8d93",
+            source_url=f"https://data.medicaid.gov/dataset/dfa2ab14-06c2-457a-9e36-5cb6d80f8d93?conditions[0][property]=ndc_description&conditions[0][value]={generic_name.upper()}&conditions[0][operator]=contains",
             source_year=source_year,
             data_retrieved_at=datetime.utcnow().isoformat(),
         )
@@ -260,5 +260,5 @@ class NADACSource(DrugDataSource):
             return None
 
         pricing_info["source_authority"] = "CMS"
-        pricing_info["source_url"] = "https://data.medicaid.gov/dataset/dfa2ab14-06c2-457a-9e36-5cb6d80f8d93"
+        pricing_info["source_url"] = f"https://data.medicaid.gov/dataset/dfa2ab14-06c2-457a-9e36-5cb6d80f8d93?conditions[0][property]=ndc_description&conditions[0][value]={generic_name.upper()}&conditions[0][operator]=contains"
         return pricing_info

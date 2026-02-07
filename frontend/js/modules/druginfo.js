@@ -94,11 +94,12 @@ const DrugInfoModule = (() => {
                     This is an information tool only — NOT a substitute for clinical judgment.
                 </div>
                 <div class="druginfo-search">
-                    <div class="form-group" style="flex:1;margin-bottom:0;">
+                    <div class="form-group" style="flex:1;margin-bottom:0;position:relative;">
                         <label>Drug Name</label>
                         <input type="text" id="druginfo-input"
                                placeholder="e.g., Metformin, Atorvastatin, Lisinopril"
                                autocomplete="off">
+                        <ul id="druginfo-autocomplete" class="autocomplete-list"></ul>
                     </div>
                     <button id="druginfo-search-btn" class="btn btn-primary"
                             style="width:auto;align-self:flex-end;height:42px;">
@@ -111,11 +112,104 @@ const DrugInfoModule = (() => {
 
         const input = document.getElementById('druginfo-input');
         const btn = document.getElementById('druginfo-search-btn');
+        const acList = document.getElementById('druginfo-autocomplete');
 
-        btn.addEventListener('click', lookupDrug);
+        btn.addEventListener('click', () => { hideAutocomplete(); lookupDrug(); });
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') lookupDrug();
+            const items = document.querySelectorAll('#druginfo-autocomplete .autocomplete-item');
+            const visible = items.length > 0 && document.getElementById('druginfo-autocomplete').style.display !== 'none';
+
+            if (e.key === 'ArrowDown' && visible) {
+                e.preventDefault();
+                _acIndex = Math.min(_acIndex + 1, items.length - 1);
+                _highlightAcItem(items);
+            } else if (e.key === 'ArrowUp' && visible) {
+                e.preventDefault();
+                _acIndex = Math.max(_acIndex - 1, 0);
+                _highlightAcItem(items);
+            } else if (e.key === 'Enter') {
+                if (visible && _acIndex >= 0 && items[_acIndex]) {
+                    e.preventDefault();
+                    input.value = items[_acIndex].dataset.name;
+                    hideAutocomplete();
+                    lookupDrug();
+                } else {
+                    hideAutocomplete();
+                    lookupDrug();
+                }
+            } else if (e.key === 'Escape') {
+                hideAutocomplete();
+            }
         });
+
+        // Typeahead
+        let _acTimer = null;
+        input.addEventListener('input', () => {
+            clearTimeout(_acTimer);
+            _acIndex = -1;
+            const q = input.value.trim();
+            if (q.length < 2) { hideAutocomplete(); return; }
+            _acTimer = setTimeout(() => fetchSuggestions(q), 220);
+        });
+
+        // Close autocomplete on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.form-group')) hideAutocomplete();
+        });
+    }
+
+    let _acIndex = -1;
+
+    function hideAutocomplete() {
+        _acIndex = -1;
+        const el = document.getElementById('druginfo-autocomplete');
+        if (el) { el.innerHTML = ''; el.style.display = 'none'; }
+    }
+
+    function _highlightAcItem(items) {
+        items.forEach((li, i) => {
+            li.classList.toggle('ac-active', i === _acIndex);
+        });
+        if (items[_acIndex]) {
+            items[_acIndex].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    async function fetchSuggestions(query) {
+        const res = await API.autocompleteDrugs(query);
+        const list = (res && res.suggestions) || [];
+        const acList = document.getElementById('druginfo-autocomplete');
+        if (!acList) return;
+
+        if (!list.length) { hideAutocomplete(); return; }
+
+        acList.innerHTML = list.map(s =>
+            `<li class="autocomplete-item" data-name="${s.name}">
+                <span class="ac-name">${highlightMatch(s.name, query)}</span>
+                ${s.drug_class ? `<span class="ac-class">${s.drug_class}</span>` : ''}
+            </li>`
+        ).join('');
+        acList.style.display = 'block';
+
+        // Click handler for each suggestion
+        acList.querySelectorAll('.autocomplete-item').forEach(li => {
+            li.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // prevent input blur
+                const name = li.dataset.name;
+                document.getElementById('druginfo-input').value = name;
+                hideAutocomplete();
+                lookupDrug();
+            });
+        });
+    }
+
+    function highlightMatch(text, query) {
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return text;
+        const before = text.slice(0, idx);
+        const match = text.slice(idx, idx + query.length);
+        const after = text.slice(idx + query.length);
+        return `${before}<strong>${match}</strong>${after}`;
     }
 
     async function lookupDrug() {

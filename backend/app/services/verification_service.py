@@ -53,6 +53,7 @@ class VerificationResult:
     confidence: float = 0.0  # 0–1
     merged_data: Optional[NormalizedDrugData] = None
     sources_used: list[str] = field(default_factory=list)
+    all_source_urls: dict[str, str] = field(default_factory=dict)  # authority → URL
     conflicts: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
@@ -141,6 +142,7 @@ def verify_drug_data(
     # Filter out None/empty entries
     valid_data = [d for d in source_data if d is not None]
     result.sources_used = [d.source_authority for d in valid_data]
+    result.all_source_urls = {d.source_authority: d.source_url for d in valid_data if d.source_url}
 
     if len(valid_data) < MIN_SOURCES_REQUIRED:
         result.notes.append(
