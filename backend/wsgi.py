@@ -1,5 +1,6 @@
 """
-WSGI entry point for Clerasense backend.
+Entry point for Clerasense backend.
+Run with: python wsgi.py
 """
 
 from app.main import create_app
@@ -7,4 +8,4 @@ from app.main import create_app
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=app.config.get("DEBUG", False))
+    app.run(host="127.0.0.1", port=5000, debug=app.config.get("DEBUG", False))

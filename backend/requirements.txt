@@ -7,5 +7,5 @@ python-dotenv>=1.0
 pyjwt>=2.8
 openai>=1.12
 numpy>=1.26
-gunicorn>=21.2
 bcrypt>=4.1
+pytest>=8.0

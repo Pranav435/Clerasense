@@ -1,8 +1,12 @@
 """
 Clerasense – Flask Application Factory
+Serves both the REST API and the frontend static files.
 """
 
-from flask import Flask
+import os
+from pathlib import Path
+
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -20,6 +24,9 @@ from app.middleware.audit_logger import audit_after_request
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[Config.RATE_LIMIT_DEFAULT])
 
+# Path to the frontend directory (relative to project root)
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
+
 
 def create_app() -> Flask:
     Config.validate()
@@ -28,6 +35,7 @@ def create_app() -> Flask:
     app.config["SECRET_KEY"] = Config.FLASK_SECRET_KEY
     app.config["SQLALCHEMY_DATABASE_URI"] = Config.DATABASE_URL
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["DEBUG"] = Config.APP_ENV == "development"
 
     # Extensions
     CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -50,5 +58,19 @@ def create_app() -> Flask:
     @app.route("/api/health")
     def health():
         return {"status": "ok", "service": "clerasense"}
+
+    # ---------- Serve frontend static files ----------
+    @app.route("/")
+    def serve_index():
+        return send_from_directory(str(FRONTEND_DIR), "index.html")
+
+    @app.route("/<path:filename>")
+    def serve_static(filename):
+        """Serve any file from the frontend directory (CSS, JS, images)."""
+        file_path = FRONTEND_DIR / filename
+        if file_path.is_file():
+            return send_from_directory(str(FRONTEND_DIR), filename)
+        # Fall back to index.html for SPA-style routing
+        return send_from_directory(str(FRONTEND_DIR), "index.html")
 
     return app

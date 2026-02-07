@@ -44,15 +44,15 @@ Clerasense helps licensed physicians:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Frontend (Nginx)                      │
-│  HTML/CSS/Vanilla JS  │  Port 3000 (Docker) / 80       │
+│                    Frontend (Static)                     │
+│  HTML/CSS/Vanilla JS  │  Served by Flask                │
 │  ┌────────┬────────┬──────────┬──────────┐              │
 │  │  Chat  │Compare │ Safety   │ Pricing  │              │
 │  └────────┴────────┴──────────┴──────────┘              │
 └──────────────────────┬──────────────────────────────────┘
                        │ /api/*
 ┌──────────────────────▼──────────────────────────────────┐
-│                 Backend (Flask/Gunicorn)                  │
+│                 Backend (Flask)                           │
 │  Port 5000                                               │
 │  ┌──────────────────────────────────────────────────┐   │
 │  │  JWT Auth Middleware → Rate Limiter → Audit Log   │   │
@@ -66,10 +66,10 @@ Clerasense helps licensed physicians:
           ┌────────────┴────────────┐
           ▼                         ▼
 ┌──────────────────┐    ┌────────────────────┐
-│   PostgreSQL     │    │   OpenAI API       │
-│  (normalized     │    │  (embeddings +     │
-│   drug data +    │    │   summarization)   │
-│   embeddings)    │    │                    │
+│  PostgreSQL      │    │   OpenAI API       │
+│  (remote hosted, │    │  (embeddings +     │
+│   normalized     │    │   summarization)   │
+│   drug data)     │    │                    │
 └──────────────────┘    └────────────────────┘
 ```
 
@@ -78,11 +78,10 @@ Clerasense helps licensed physicians:
 | Layer      | Technology                         |
 |------------|------------------------------------|
 | Frontend   | HTML, CSS, Vanilla JavaScript       |
-| Backend    | Python 3.12, Flask, Gunicorn       |
+| Backend    | Python 3.12, Flask                 |
 | Database   | PostgreSQL 16                      |
 | AI/RAG     | OpenAI API (embeddings + GPT-4o-mini) |
 | Auth       | JWT (HS256) + bcrypt               |
-| Deployment | Docker Compose                     |
 
 ---
 
@@ -246,7 +245,6 @@ cp .env.example .env
 
 - `.env` is gitignored and never committed
 - Frontend never accesses secret keys
-- Docker passes environment variables via `env_file`
 - Backend validates all required variables at startup
 
 ---
@@ -255,40 +253,57 @@ cp .env.example .env
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- Python 3.12+ (for local development)
-- PostgreSQL 16 (or use Docker)
+- **Python 3.12+**
+- **PostgreSQL 16** database (remote hosted or local)
+- **psql** CLI — for running schema/seed scripts
+  - macOS: `brew install libpq`
+  - Ubuntu: `sudo apt install postgresql-client`
+- An **OpenAI API key** for the RAG pipeline
 
-### Quick Start with Docker
+### 1. Clone & Configure Environment
 
 ```bash
-# 1. Clone and configure
 cp .env.example .env
-# Edit .env with your actual values
-
-# 2. Start all services
-docker-compose up --build
-
-# 3. Access
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:5000/api/health
-# Database is automatically seeded with initial data
+# Edit .env — set DATABASE_URL to your remote PostgreSQL connection string,
+# add your OpenAI key, and generate secret keys.
 ```
 
-### Local Development
+### 2. Set Up Python Virtual Environment
 
 ```bash
-# Backend
-cd backend
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-python wsgi.py
-
-# Frontend (serve static files)
-cd frontend
-python -m http.server 3000
+pip install -r backend/requirements.txt
 ```
+
+### 3. Initialize the Database
+
+```bash
+bash scripts/setup_db.sh
+```
+
+This connects to the PostgreSQL database specified by `DATABASE_URL` in your `.env` file, runs the schema migration, and seeds the initial drug data. Works with any remote or local PostgreSQL instance.
+
+### 4. Start the Server
+
+```bash
+bash scripts/run.sh
+```
+
+Or manually:
+
+```bash
+source venv/bin/activate
+cd backend
+python wsgi.py
+```
+
+### 5. Access the Application
+
+- **Frontend:** http://127.0.0.1:5000/
+- **API Health:** http://127.0.0.1:5000/api/health
+
+Flask serves both the API and the frontend static files on port 5000.
 
 ---
 
@@ -312,20 +327,15 @@ python -m pytest tests/ -v
 
 ## Deployment
 
-### Docker Compose (Recommended)
-
-```bash
-docker-compose up -d --build
-```
-
-Services:
-- `db`: PostgreSQL 16 with auto-initialization
-- `backend`: Flask/Gunicorn on port 5000
-- `frontend`: Nginx serving static files on port 3000, proxying `/api/` to backend
-
 ### Production Considerations
 
-- Use proper TLS/SSL termination
+- Use a WSGI server like **gunicorn** for production:
+  ```bash
+  pip install gunicorn
+  cd backend
+  gunicorn wsgi:app --bind 0.0.0.0:5000 --workers 4
+  ```
+- Use a reverse proxy (e.g., Nginx, Caddy) for TLS/SSL termination
 - Set `APP_ENV=production` in `.env`
 - Use strong, unique values for `FLASK_SECRET_KEY` and `JWT_SECRET`
 - Configure proper CORS origins instead of wildcard
@@ -379,17 +389,19 @@ This software is provided for **informational purposes only**. It has not been c
 clerasense/
 ├── .env.example              # Environment variable template
 ├── .gitignore
-├── docker-compose.yml        # Multi-container orchestration
 ├── README.md
 │
+├── scripts/
+│   ├── setup_db.sh           # Run schema & seed against remote DB
+│   └── run.sh                # Start dev server
+│
 ├── backend/
-│   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── wsgi.py               # WSGI entry point
+│   ├── wsgi.py               # Entry point (python wsgi.py)
 │   ├── pytest.ini
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py           # Flask app factory
+│   │   ├── main.py           # Flask app factory + static serving
 │   │   ├── config.py         # Environment variable loader
 │   │   ├── database.py       # SQLAlchemy instance
 │   │   ├── models/
@@ -421,8 +433,6 @@ clerasense/
 │       └── test_guardrails.py # Safety & refusal tests
 │
 ├── frontend/
-│   ├── Dockerfile
-│   ├── nginx.conf
 │   ├── index.html
 │   ├── css/
 │   │   ├── main.css          # Layout & global styles
@@ -439,6 +449,5 @@ clerasense/
 │
 └── database/
     ├── schema.sql            # Full normalized schema
-    ├── seed.sql              # Verified seed data with sources
-    └── init.sh               # Docker entrypoint script
+    └── seed.sql              # Verified seed data with sources
 ```
