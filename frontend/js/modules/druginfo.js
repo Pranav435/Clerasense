@@ -190,13 +190,21 @@ const DrugInfoModule = (() => {
             ${renderSourceBadge(drug.source)}
         </div>`;
 
-        // ── Indications ──
+        // ── Indications (deduplicated) ──
         if (drug.indications && drug.indications.length) {
+            // Deduplicate overlapping indications
+            const seenInd = new Set();
+            const uniqueInd = drug.indications.filter(ind => {
+                const key = (ind.approved_use || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 80);
+                if (seenInd.has(key)) return false;
+                seenInd.add(key);
+                return true;
+            });
             html += `<div class="druginfo-card">
                 <h3 class="druginfo-section-title">📋 Approved Indications</h3>`;
-            drug.indications.forEach(ind => {
+            uniqueInd.forEach(ind => {
                 html += `<div class="druginfo-item">
-                    <p>${ind.approved_use}</p>
+                    ${formatText(ind.approved_use, 500)}
                     ${renderSourceBadge(ind.source)}
                 </div>`;
             });
@@ -212,25 +220,25 @@ const DrugInfoModule = (() => {
                 if (d.adult_dosage) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Adult Dosage</div>
-                        <div class="dosage-value">${truncate(d.adult_dosage, 500)}</div>
+                        <div class="dosage-value">${formatText(d.adult_dosage, 500)}</div>
                     </div>`;
                 }
                 if (d.pediatric_dosage) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Pediatric Dosage</div>
-                        <div class="dosage-value">${truncate(d.pediatric_dosage, 500)}</div>
+                        <div class="dosage-value">${formatText(d.pediatric_dosage, 500)}</div>
                     </div>`;
                 }
                 if (d.renal_adjustment) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Renal Adjustment</div>
-                        <div class="dosage-value">${truncate(d.renal_adjustment, 500)}</div>
+                        <div class="dosage-value">${formatText(d.renal_adjustment, 500)}</div>
                     </div>`;
                 }
                 if (d.hepatic_adjustment) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Hepatic Adjustment</div>
-                        <div class="dosage-value">${truncate(d.hepatic_adjustment, 500)}</div>
+                        <div class="dosage-value">${formatText(d.hepatic_adjustment, 500)}</div>
                     </div>`;
                 }
                 html += `</div>`;
@@ -247,23 +255,25 @@ const DrugInfoModule = (() => {
                 if (w.black_box_warnings) {
                     html += `<div class="druginfo-blackbox">
                         <strong>⛔ BLACK BOX WARNING</strong>
-                        <p>${truncate(w.black_box_warnings, 800)}</p>
+                        ${formatText(w.black_box_warnings, 800)}
                     </div>`;
                 }
                 if (w.contraindications) {
                     html += `<div class="druginfo-item">
                         <strong>🚫 Contraindications:</strong>
-                        <p>${truncate(w.contraindications, 800)}</p>
+                        ${formatText(w.contraindications, 800)}
                     </div>`;
                 }
                 if (w.pregnancy_risk) {
                     html += `<div class="druginfo-item">
-                        <strong>🤰 Pregnancy:</strong> ${truncate(w.pregnancy_risk, 500)}
+                        <strong>🤰 Pregnancy:</strong>
+                        ${formatText(w.pregnancy_risk, 500)}
                     </div>`;
                 }
                 if (w.lactation_risk) {
                     html += `<div class="druginfo-item">
-                        <strong>🍼 Lactation:</strong> ${truncate(w.lactation_risk, 500)}
+                        <strong>🍼 Lactation:</strong>
+                        ${formatText(w.lactation_risk, 500)}
                     </div>`;
                 }
                 html += renderAdverseEvents(w);
@@ -412,28 +422,60 @@ const DrugInfoModule = (() => {
                 : '<span class="generic-badge" style="background:#fef2f2;color:var(--danger);">Brand Only</span>'}
         </div>`;
 
-        // Simplified pricing entries
+        // Pricing entries — parse compound cost string into per-formulation rows
         if (data.pricing && data.pricing.length) {
             data.pricing.forEach(p => {
                 const isNadac = p.pricing_source === 'NADAC';
+                const sourceLabel = isNadac ? 'NADAC (Government Pharmacy Acquisition Cost)' : 'Estimated Retail Price';
 
                 html += `<div class="druginfo-pricing-entry ${isNadac ? 'nadac' : 'estimate'}">`;
-
-                // Top row: source tag + cost
-                html += `<div class="pricing-main-row">
-                    <div class="pricing-main-left">
-                        <span class="pricing-tag ${isNadac ? 'govt' : 'est'}">${isNadac ? 'NADAC (Government)' : 'Estimate'}</span>
-                        ${p.nadac_package_description ? `<span class="pricing-package">${p.nadac_package_description}</span>` : ''}
-                    </div>
-                    <div class="pricing-main-cost">
-                        ${p.approximate_cost ? p.approximate_cost : 'N/A'}
-                    </div>
+                html += `<div class="pricing-source-header">
+                    <span class="pricing-tag ${isNadac ? 'govt' : 'est'}">${sourceLabel}</span>
                 </div>`;
+
+                // Parse formulation rows from approximate_cost
+                if (p.approximate_cost) {
+                    const segments = p.approximate_cost.split(';').map(s => s.trim()).filter(Boolean);
+                    if (segments.length > 1) {
+                        // Multiple formulations — show each labeled separately
+                        html += '<div class="pricing-formulations">';
+                        segments.forEach(seg => {
+                            // Format: "$0.70/EA → ~$21–$63/month (FORMULATION NAME)"
+                            const nameMatch = seg.match(/\(([^)]+)\)/);
+                            const formName = nameMatch ? nameMatch[1] : 'Standard';
+                            // Extract unit cost and monthly range
+                            const unitMatch = seg.match(/^\$([\d.]+)\/EA/);
+                            const monthlyMatch = seg.match(/~\$([\d.,]+)[–-]\$([\d.,]+)\/month/);
+                            html += `<div class="pricing-formulation-row">
+                                <div class="formulation-name">${formName}</div>
+                                <div class="formulation-costs">`;
+                            if (unitMatch) {
+                                html += `<span class="formulation-unit">Unit: <strong>${_formatPrice(parseFloat(unitMatch[1]), 4)}</strong>/ea</span>`;
+                            }
+                            if (monthlyMatch) {
+                                html += `<span class="formulation-monthly">Monthly (30–90 day): <strong>${_formatPrice(parseFloat(monthlyMatch[1].replace(',','')))}</strong> – <strong>${_formatPrice(parseFloat(monthlyMatch[2].replace(',','')))}</strong></span>`;
+                            }
+                            html += `</div></div>`;
+                        });
+                        html += '</div>';
+                    } else {
+                        // Single price — show simply
+                        const seg = segments[0];
+                        const nameMatch = seg.match(/\(([^)]+)\)/);
+                        const formName = nameMatch ? nameMatch[1] : (p.nadac_package_description || '');
+                        html += `<div class="pricing-single">
+                            ${formName ? `<div class="formulation-name">${formName}</div>` : ''}
+                            <div class="pricing-main-cost">${seg.replace(/\([^)]+\)/, '').trim()}</div>
+                        </div>`;
+                    }
+                } else {
+                    html += '<p style="color:var(--text-muted);font-size:13px;">Cost data not available for this entry.</p>';
+                }
 
                 // NADAC unit price (converted)
                 if (isNadac && p.nadac_per_unit) {
                     html += `<div class="pricing-unit-row">
-                        Unit price: <strong>${_formatPrice(p.nadac_per_unit, 4)}</strong>/unit
+                        Verified unit cost: <strong>${_formatPrice(p.nadac_per_unit, 4)}</strong>/unit
                         ${_currency !== 'USD' ? `<span class="pricing-orig">(US$${p.nadac_per_unit.toFixed(4)})</span>` : ''}
                         ${p.nadac_effective_date ? `<span class="pricing-date">as of ${p.nadac_effective_date}</span>` : ''}
                     </div>`;
@@ -469,6 +511,45 @@ const DrugInfoModule = (() => {
     function truncate(str, max) {
         if (!str) return '';
         return str.length > max ? str.substring(0, max) + '…' : str;
+    }
+
+    /**
+     * Format a long medical text blob into readable bullet-pointed HTML.
+     * Splits on sentence boundaries; deduplicates; wraps in <ul>.
+     */
+    function formatText(raw, maxLen) {
+        if (!raw) return '';
+        let text = raw.trim();
+        if (maxLen) text = truncate(text, maxLen);
+
+        // Split into sentences at: period+space, semicolons, or existing bullet chars
+        let parts = text
+            .split(/(?<=[.;])\s+|\s*[•●▪]\s*/)
+            .map(s => s.trim())
+            .filter(s => s.length > 8);  // drop tiny fragments
+
+        // Deduplicate (some data has repeated sentences)
+        const seen = new Set();
+        parts = parts.filter(p => {
+            const key = p.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        // If 1 short item, just return as paragraph
+        if (parts.length <= 1 && text.length < 150) {
+            return `<p>${text}</p>`;
+        }
+
+        if (parts.length <= 1) {
+            // Still one block but long — return as paragraph
+            return `<p>${text}</p>`;
+        }
+
+        return '<ul class="druginfo-bullets">' +
+            parts.map(p => `<li>${p.replace(/^\(\s*\d+\s*\)\s*/, '').replace(/^\d+\.\d+\s*/, '')}</li>`).join('') +
+            '</ul>';
     }
 
     function updateContextPanel(drug) {

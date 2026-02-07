@@ -745,3 +745,61 @@
     margin-bottom: 12px;
     color: var(--text-primary);
 }
+
+/* ── Drug-info bullet lists ── */
+.druginfo-bullets {
+    margin: 6px 0 4px 8px;
+    padding-left: 16px;
+    list-style-type: disc;
+}
+.druginfo-bullets li {
+    font-size: 13px;
+    line-height: 1.55;
+    margin-bottom: 4px;
+    color: var(--text-secondary);
+}
+.druginfo-blackbox .druginfo-bullets li {
+    color: #7f1d1d;
+}
+
+/* ── Pricing formulation rows ── */
+.pricing-source-header {
+    margin-bottom: 8px;
+}
+.pricing-formulations {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.pricing-formulation-row {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+}
+.formulation-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    text-transform: capitalize;
+}
+.formulation-costs {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.formulation-unit, .formulation-monthly {
+    white-space: nowrap;
+}
+.pricing-single {
+    margin-bottom: 8px;
+}
+.pricing-single .pricing-main-cost {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}

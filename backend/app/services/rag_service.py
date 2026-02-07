@@ -53,10 +53,38 @@ Structure your response with these sections as applicable:
 If the query doesn't relate to the retrieved drugs, state that clearly."""
 
 
+def _extract_drug_names_from_history(conversation_history: list) -> list[str]:
+    """Scan prior user messages for likely drug names so follow-ups can be resolved."""
+    import re
+    drug_suffixes = (
+        "mab", "nib", "tin", "cin", "lin", "pin", "mil", "lol", "sin",
+        "pril", "vir", "statin", "sartan", "zole", "pam", "lam", "done",
+        "ine", "ide", "ate", "one", "fen", "oxin", "formin", "sartan",
+    )
+    names = []
+    seen = set()
+    for msg in conversation_history:
+        if msg.get("role") != "user":
+            continue
+        text = msg.get("content", "")
+        for word in re.findall(r"[A-Za-z\-]{3,}", text):
+            clean = word.strip("-").capitalize()
+            if clean.lower() in seen:
+                continue
+            # Heuristic: Capitalised word or ends with a drug-like suffix
+            if word[0].isupper() or any(word.lower().endswith(s) for s in drug_suffixes):
+                from app.models.models import Drug
+                hit = Drug.query.filter(Drug.generic_name.ilike(clean)).first()
+                if hit:
+                    seen.add(clean.lower())
+                    names.append(hit.generic_name)
+    return names
+
+
 def generate_rag_response(query: str, intent: str, conversation_history: list | None = None) -> dict:
     """
     Full RAG pipeline:
-      1. Retrieve relevant drug data from DB
+      1. Retrieve relevant drug data from DB (augmented with conversation context)
       2. If nothing found → return "not available" without calling LLM
       3. Build context from retrieved data
       4. Call LLM to summarize with citations (includes conversation history)
@@ -65,8 +93,16 @@ def generate_rag_response(query: str, intent: str, conversation_history: list | 
     if conversation_history is None:
         conversation_history = []
 
-    # Step 1: Retrieve
+    # Step 1: Retrieve — augment query with drug names from history for follow-ups
     retrieved = retrieve_drugs(query)
+
+    if not retrieved and conversation_history:
+        # Follow-up: the query probably lacks a drug name.  Extract from history.
+        history_drugs = _extract_drug_names_from_history(conversation_history)
+        if history_drugs:
+            augmented = f"{', '.join(history_drugs)}: {query}"
+            logger.info("Follow-up: augmented query → %s", augmented)
+            retrieved = retrieve_drugs(augmented)
 
     # Step 2: No retrieval → no answer (hard rule)
     if not retrieved:
