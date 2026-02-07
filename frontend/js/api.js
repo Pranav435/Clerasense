@@ -112,6 +112,10 @@ const API = (() => {
         return request(`/drugs/autocomplete?q=${encodeURIComponent(query)}`);
     }
 
+    async function suggestDrugs(query) {
+        return request(`/drugs/suggest?q=${encodeURIComponent(query)}`);
+    }
+
     // ── Chat ──
     async function chat(query, conversationHistory) {
         const payload = { query };
@@ -149,7 +153,7 @@ const API = (() => {
         getToken, setToken, clearToken,
         getDoctor, setDoctor,
         login, register,
-        searchDrugs, getDrug, getDrugByName, autocompleteDrugs,
+        searchDrugs, getDrug, getDrugByName, autocompleteDrugs, suggestDrugs,
         chat, compareDrugs, checkSafety, getPricing,
     };
 })();

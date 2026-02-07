@@ -284,6 +284,62 @@
     white-space: nowrap;
 }
 
+/* Fuzzy-match hint row in autocomplete dropdown */
+.autocomplete-hint {
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-light);
+    user-select: none;
+}
+
+/* "Did you mean?" suggestion pills on failed search */
+.druginfo-suggest-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+}
+.suggest-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+.suggest-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+.suggest-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--accent);
+    background: var(--bg-primary);
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.suggest-pill:hover {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.suggest-pill .suggest-class {
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.75;
+}
+
 .druginfo-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border);

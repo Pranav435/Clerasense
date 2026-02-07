@@ -178,17 +178,23 @@ const DrugInfoModule = (() => {
     async function fetchSuggestions(query) {
         const res = await API.autocompleteDrugs(query);
         const list = (res && res.suggestions) || [];
+        const isFuzzy = res && res.fuzzy;
         const acList = document.getElementById('druginfo-autocomplete');
         if (!acList) return;
 
         if (!list.length) { hideAutocomplete(); return; }
 
-        acList.innerHTML = list.map(s =>
+        let html = '';
+        if (isFuzzy) {
+            html += `<li class="autocomplete-hint">Did you mean…</li>`;
+        }
+        html += list.map(s =>
             `<li class="autocomplete-item" data-name="${s.name}">
-                <span class="ac-name">${highlightMatch(s.name, query)}</span>
+                <span class="ac-name">${isFuzzy ? s.name : highlightMatch(s.name, query)}</span>
                 ${s.drug_class ? `<span class="ac-class">${s.drug_class}</span>` : ''}
             </li>`
         ).join('');
+        acList.innerHTML = html;
         acList.style.display = 'block';
 
         // Click handler for each suggestion
@@ -233,7 +239,31 @@ const DrugInfoModule = (() => {
         ]);
 
         if (rawDrug.error) {
-            resultsEl.innerHTML = `<p class="error-msg">${rawDrug.error}</p>`;
+            // Drug not found — try fuzzy suggestions
+            const fuzzy = await API.suggestDrugs(name);
+            const suggestions = (fuzzy && fuzzy.suggestions) || [];
+            if (suggestions.length) {
+                const pills = suggestions.map(s =>
+                    `<button class="suggest-pill" data-name="${s.name}">
+                        ${s.name}${s.drug_class ? ` <span class="suggest-class">(${s.drug_class})</span>` : ''}
+                    </button>`
+                ).join('');
+                resultsEl.innerHTML = `
+                    <div class="druginfo-suggest-box">
+                        <p class="error-msg" style="margin-bottom:10px;">No exact match found for "<strong>${name}</strong>".</p>
+                        <p class="suggest-label">Did you mean:</p>
+                        <div class="suggest-pills">${pills}</div>
+                    </div>`;
+                // Bind click handlers
+                resultsEl.querySelectorAll('.suggest-pill').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.getElementById('druginfo-input').value = btn.dataset.name;
+                        lookupDrug();
+                    });
+                });
+            } else {
+                resultsEl.innerHTML = `<p class="error-msg">${rawDrug.error}</p>`;
+            }
             return;
         }
 
