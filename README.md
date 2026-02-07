@@ -254,10 +254,7 @@ cp .env.example .env
 ### Prerequisites
 
 - **Python 3.12+**
-- **PostgreSQL 16** database (remote hosted or local)
-- **psql** CLI — for running schema/seed scripts
-  - macOS: `brew install libpq`
-  - Ubuntu: `sudo apt install postgresql-client`
+- A **PostgreSQL** database (remote hosted — e.g. Supabase, Neon, Railway, AWS RDS, etc.)
 - An **OpenAI API key** for the RAG pipeline
 
 ### 1. Clone & Configure Environment
@@ -276,15 +273,7 @@ source venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-### 3. Initialize the Database
-
-```bash
-bash scripts/setup_db.sh
-```
-
-This connects to the PostgreSQL database specified by `DATABASE_URL` in your `.env` file, runs the schema migration, and seeds the initial drug data. Works with any remote or local PostgreSQL instance.
-
-### 4. Start the Server
+### 3. Start the Server
 
 ```bash
 bash scripts/run.sh
@@ -297,6 +286,18 @@ source venv/bin/activate
 cd backend
 python wsgi.py
 ```
+
+On first run, the app automatically creates all database tables if they don't already exist. No manual migration step needed.
+
+### 4. Seed Reference Data (Optional, One-Time)
+
+To populate the database with the initial set of 5 drugs, sources, pricing, and interaction data:
+
+```bash
+bash scripts/setup_db.sh
+```
+
+> **Requires `psql` CLI** — install with `brew install libpq` (macOS) or `sudo apt install postgresql-client` (Ubuntu). This only needs to run once.
 
 ### 5. Access the Application
 

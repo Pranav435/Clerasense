@@ -26,7 +26,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
     exit 1
 fi
 
-DATABASE_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | cut -d '=' -f2-)
+DATABASE_URL=$(grep --color=never -E '^DATABASE_URL=' "$ENV_FILE" | cut -d '=' -f2- | tr -d '[:space:]')
 
 if [[ -z "$DATABASE_URL" ]]; then
     echo "ERROR: DATABASE_URL is not set in .env"

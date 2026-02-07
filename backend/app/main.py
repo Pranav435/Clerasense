@@ -42,6 +42,11 @@ def create_app() -> Flask:
     limiter.init_app(app)
     db.init_app(app)
 
+    # Create tables if they don't already exist
+    with app.app_context():
+        import app.models.models  # noqa: F401 – ensure all models are registered
+        db.create_all()
+
     # Middleware
     app.before_request(jwt_required_middleware)
     app.after_request(audit_after_request)
