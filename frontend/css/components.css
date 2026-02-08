@@ -2171,3 +2171,104 @@ td.unavailable {
 .druginfo-blackbox .read-more-toggle:hover {
     color: #a93226;
 }
+/* ═══════════════════════════════════════════════════════
+   COLLAPSIBLE SECTIONS — <details>/<summary>
+   ═══════════════════════════════════════════════════════ */
+.druginfo-section {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    transition: box-shadow .2s;
+}
+.druginfo-section:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+.druginfo-section > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--heading, #1e293b);
+    background: var(--card-bg, #fff);
+    border-bottom: 1px solid transparent;
+    transition: background .15s, border-color .15s;
+}
+.druginfo-section > summary::-webkit-details-marker { display: none; }
+.druginfo-section > summary::marker { content: ""; }
+.druginfo-section[open] > summary {
+    border-bottom-color: var(--border, #e2e8f0);
+    background: var(--section-header-bg, #f8fafc);
+}
+.druginfo-section > summary:hover {
+    background: var(--hover-bg, #f1f5f9);
+}
+.section-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+.section-title {
+    flex: 1;
+}
+.section-chevron {
+    width: 20px;
+    height: 20px;
+    transition: transform .2s ease;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted, #94a3b8);
+}
+.section-chevron::after {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform .2s ease;
+}
+.druginfo-section[open] .section-chevron::after {
+    transform: rotate(-135deg);
+}
+.druginfo-section-body {
+    padding: 16px 18px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text, #334155);
+}
+/* Re-use existing card content styles inside collapsible body */
+.druginfo-section-body .druginfo-dosage-grid {
+    margin: 0;
+}
+.druginfo-section-body .druginfo-card {
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+}
+
+/* Badge count in section header */
+.section-badge {
+    background: var(--accent, #2563eb);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 10px;
+    margin-left: 4px;
+}
+.section-badge.warn { background: #ef4444; }
+.section-badge.muted { background: var(--text-muted, #94a3b8); }

@@ -24,6 +24,7 @@ class NormalizedDrugData:
     hepatic_adjustment: str = ""
     overdose_info: str = ""
     underdose_info: str = ""
+    administration_info: str = ""
     contraindications: str = ""
     black_box_warnings: str = ""
     pregnancy_risk: str = ""

@@ -246,12 +246,25 @@ const DrugInfoModule = (() => {
         </div>`;
     }
 
+    /* ── Collapsible section helper ── */
+    function _section(icon, title, bodyHtml, defaultOpen, badgeHtml) {
+        return `<details class="druginfo-section" ${defaultOpen ? 'open' : ''}>
+            <summary>
+                <span class="section-icon">${icon}</span>
+                <span class="section-title">${title}</span>
+                ${badgeHtml || ''}
+                <span class="section-chevron"></span>
+            </summary>
+            <div class="druginfo-section-body">${bodyHtml}</div>
+        </details>`;
+    }
+
     /* ── Main drug profile renderer ── */
     function renderDrugProfile(drug, pricing, container) {
         _expandId = 0;  // reset for fresh IDs on re-render
         let html = '';
 
-        // ── Header Card ──
+        // ── 1. Header Card (always visible, not collapsible) ──
         html += `<div class="druginfo-card druginfo-header-card">
             <div class="druginfo-title-row">
                 <div>
@@ -262,17 +275,81 @@ const DrugInfoModule = (() => {
                 ${drug.drug_class
                     ? `<span class="druginfo-class-badge">${drug.drug_class}</span>` : ''}
             </div>
-            ${drug.mechanism_of_action
-                ? `<div class="druginfo-mechanism">
-                       <strong>Mechanism of Action:</strong>
-                       ${formatText(drug.mechanism_of_action)}
-                   </div>` : ''}
             ${renderSourceBadge(drug.source)}
         </div>`;
 
-        // ── Indications (deduplicated) ──
+        // ── 2. Dosage Guidelines (expanded) ──
+        if (drug.dosage_guidelines && drug.dosage_guidelines.length) {
+            let dosageBody = '';
+            drug.dosage_guidelines.forEach(d => {
+                dosageBody += '<div class="druginfo-dosage-grid">';
+                if (d.adult_dosage) {
+                    dosageBody += `<div class="druginfo-dosage-cell">
+                        <div class="dosage-label">Adult Dosage</div>
+                        <div class="dosage-value">${formatText(d.adult_dosage)}</div>
+                    </div>`;
+                }
+                if (d.pediatric_dosage) {
+                    dosageBody += `<div class="druginfo-dosage-cell">
+                        <div class="dosage-label">Pediatric Dosage</div>
+                        <div class="dosage-value">${formatText(d.pediatric_dosage)}</div>
+                    </div>`;
+                }
+                if (d.renal_adjustment) {
+                    dosageBody += `<div class="druginfo-dosage-cell">
+                        <div class="dosage-label">Renal Adjustment</div>
+                        <div class="dosage-value">${formatText(d.renal_adjustment)}</div>
+                    </div>`;
+                }
+                if (d.hepatic_adjustment) {
+                    dosageBody += `<div class="druginfo-dosage-cell">
+                        <div class="dosage-label">Hepatic Adjustment</div>
+                        <div class="dosage-value">${formatText(d.hepatic_adjustment)}</div>
+                    </div>`;
+                }
+                dosageBody += '</div>';
+
+                // Overdose & Underdose inline
+                if (d.overdose_info || d.underdose_info) {
+                    dosageBody += '<div class="druginfo-dose-safety">';
+                    if (d.overdose_info) {
+                        dosageBody += `<div class="druginfo-overdose">
+                            <div class="dose-safety-header overdose-header">🔴 Overdose Information</div>
+                            <div class="dose-safety-body">${formatText(d.overdose_info)}</div>
+                        </div>`;
+                    }
+                    if (d.underdose_info) {
+                        dosageBody += `<div class="druginfo-underdose">
+                            <div class="dose-safety-header underdose-header">🟡 Underdose / Missed Dose</div>
+                            <div class="dose-safety-body">${formatText(d.underdose_info)}</div>
+                        </div>`;
+                    }
+                    dosageBody += '</div>';
+                }
+
+                dosageBody += renderSourceBadge(d.source);
+            });
+            html += _section('💊', 'Dosage Guidelines', dosageBody, true);
+        }
+
+        // ── 3. Administration Details (expanded) ──
+        {
+            let adminBody = '';
+            if (drug.dosage_guidelines) {
+                drug.dosage_guidelines.forEach(d => {
+                    if (d.administration_info) {
+                        adminBody += `<div class="druginfo-item">${formatText(d.administration_info)}</div>`;
+                        adminBody += renderSourceBadge(d.source);
+                    }
+                });
+            }
+            if (adminBody) {
+                html += _section('💉', 'Administration Details', adminBody, true);
+            }
+        }
+
+        // ── 4. Approved Indications (expanded) ──
         if (drug.indications && drug.indications.length) {
-            // Deduplicate overlapping indications
             const seenInd = new Set();
             const uniqueInd = drug.indications.filter(ind => {
                 const key = (ind.approved_use || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 80);
@@ -280,135 +357,108 @@ const DrugInfoModule = (() => {
                 seenInd.add(key);
                 return true;
             });
-            html += `<div class="druginfo-card">
-                <h3 class="druginfo-section-title">📋 Approved Indications</h3>`;
+            let indBody = '';
             uniqueInd.forEach(ind => {
-                html += `<div class="druginfo-item">
+                indBody += `<div class="druginfo-item">
                     ${formatText(ind.approved_use)}
                     ${renderSourceBadge(ind.source)}
                 </div>`;
             });
-            html += `</div>`;
+            html += _section('📋', 'Approved Indications', indBody, true);
         }
 
-        // ── Dosage Guidelines ──
-        if (drug.dosage_guidelines && drug.dosage_guidelines.length) {
-            html += `<div class="druginfo-card">
-                <h3 class="druginfo-section-title">💊 Dosage Guidelines</h3>`;
-            drug.dosage_guidelines.forEach(d => {
-                html += `<div class="druginfo-dosage-grid">`;
-                if (d.adult_dosage) {
-                    html += `<div class="druginfo-dosage-cell">
-                        <div class="dosage-label">Adult Dosage</div>
-                        <div class="dosage-value">${formatText(d.adult_dosage)}</div>
-                    </div>`;
-                }
-                if (d.pediatric_dosage) {
-                    html += `<div class="druginfo-dosage-cell">
-                        <div class="dosage-label">Pediatric Dosage</div>
-                        <div class="dosage-value">${formatText(d.pediatric_dosage)}</div>
-                    </div>`;
-                }
-                if (d.renal_adjustment) {
-                    html += `<div class="druginfo-dosage-cell">
-                        <div class="dosage-label">Renal Adjustment</div>
-                        <div class="dosage-value">${formatText(d.renal_adjustment)}</div>
-                    </div>`;
-                }
-                if (d.hepatic_adjustment) {
-                    html += `<div class="druginfo-dosage-cell">
-                        <div class="dosage-label">Hepatic Adjustment</div>
-                        <div class="dosage-value">${formatText(d.hepatic_adjustment)}</div>
-                    </div>`;
-                }
-                html += `</div>`;
-
-                // ── Overdose & Underdose Information ──
-                if (d.overdose_info || d.underdose_info) {
-                    html += `<div class="druginfo-dose-safety">`;
-                    if (d.overdose_info) {
-                        html += `<div class="druginfo-overdose">
-                            <div class="dose-safety-header overdose-header">🔴 Overdose Information</div>
-                            <div class="dose-safety-body">${formatText(d.overdose_info)}</div>
-                        </div>`;
-                    }
-                    if (d.underdose_info) {
-                        html += `<div class="druginfo-underdose">
-                            <div class="dose-safety-header underdose-header">🟡 Underdose / Missed Dose</div>
-                            <div class="dose-safety-body">${formatText(d.underdose_info)}</div>
-                        </div>`;
-                    }
-                    html += `</div>`;
-                }
-
-                html += renderSourceBadge(d.source);
-            });
-            html += `</div>`;
-        }
-
-        // ── Safety Warnings ──
+        // ── 5. Safety Warnings (expanded) — black box + contraindications ──
         if (drug.safety_warnings && drug.safety_warnings.length) {
-            html += `<div class="druginfo-card">
-                <h3 class="druginfo-section-title">⚠️ Safety Warnings</h3>`;
+            let safetyBody = '';
             drug.safety_warnings.forEach(w => {
                 if (w.black_box_warnings) {
-                    html += `<div class="druginfo-blackbox">
+                    safetyBody += `<div class="druginfo-blackbox">
                         <strong>⛔ BLACK BOX WARNING</strong>
                         ${formatText(w.black_box_warnings)}
                     </div>`;
                 }
                 if (w.contraindications) {
-                    html += `<div class="druginfo-item">
+                    safetyBody += `<div class="druginfo-item">
                         <strong>🚫 Contraindications:</strong>
                         ${formatText(w.contraindications)}
                     </div>`;
                 }
-                if (w.pregnancy_risk) {
-                    html += `<div class="druginfo-item">
-                        <strong>🤰 Pregnancy:</strong>
-                        ${formatText(w.pregnancy_risk)}
-                    </div>`;
-                }
-                if (w.lactation_risk) {
-                    html += `<div class="druginfo-item">
-                        <strong>🍼 Lactation:</strong>
-                        ${formatText(w.lactation_risk)}
-                    </div>`;
-                }
-                html += renderAdverseEvents(w);
-                html += renderSourceBadge(w.source);
+                safetyBody += renderSourceBadge(w.source);
             });
-            html += `</div>`;
+            if (safetyBody) {
+                html += _section('⚠️', 'Safety Warnings', safetyBody, true);
+            }
         }
 
-        // ── Drug Interactions ──
+        // ── 6. Adverse Effects / FAERS (expanded) ──
+        if (drug.safety_warnings && drug.safety_warnings.length) {
+            let adverseBody = '';
+            drug.safety_warnings.forEach(w => {
+                adverseBody += renderAdverseEvents(w);
+            });
+            if (adverseBody) {
+                html += _section('📊', 'Adverse Effects (FAERS)', adverseBody, true);
+            }
+        }
+
+        // ── 7. Drug Interactions (expanded) ──
         if (drug.interactions && drug.interactions.length) {
-            html += `<div class="druginfo-card">
-                <h3 class="druginfo-section-title">🔗 Drug Interactions</h3>
-                <div class="druginfo-interactions-list">`;
+            let ixBody = '<div class="druginfo-interactions-list">';
             drug.interactions.forEach(ix => {
                 const sevColors = {
                     'contraindicated': '#e74c3c', 'major': '#e67e22',
                     'moderate': '#f1c40f', 'minor': '#27ae60',
                 };
                 const sevColor = sevColors[ix.severity] || '#888';
-                html += `<div class="druginfo-interaction-row">
+                ixBody += `<div class="druginfo-interaction-row">
                     <span class="interaction-drug">${sentenceCase(ix.interacting_drug)}</span>
                     <span class="interaction-severity" style="background:${sevColor};">${sentenceCase(ix.severity)}</span>
                     <span class="interaction-desc">${sentenceCase(ix.description || '')}</span>
                 </div>`;
             });
-            html += `</div></div>`;
+            ixBody += '</div>';
+            html += _section('🔗', 'Drug Interactions', ixBody, true,
+                `<span class="section-badge">${drug.interactions.length}</span>`);
         }
 
-        // ── Pricing & Reimbursement ──
-        html += renderPricingSection(pricing);
+        // ──── COLLAPSED BY DEFAULT ────
 
-        // ── Brands Panel (placeholder – loaded asynchronously) ──
-        html += `<div id="brands-section-card" class="druginfo-card">
-            <h3 class="druginfo-section-title">🏭 Brand Products</h3>
-            <div id="brands-loading" class="loading" style="font-size:13px;">Loading brand product data from FDA &amp; NADAC…</div>
-        </div>`;
+        // ── 8. Mechanism of Action (collapsed) ──
+        if (drug.mechanism_of_action) {
+            html += _section('🧬', 'Mechanism of Action',
+                `<div class="druginfo-item">${formatText(drug.mechanism_of_action)}</div>`, false);
+        }
+
+        // ── 10. Pregnancy & Lactation (collapsed) ──
+        if (drug.safety_warnings && drug.safety_warnings.length) {
+            let pregBody = '';
+            drug.safety_warnings.forEach(w => {
+                if (w.pregnancy_risk) {
+                    pregBody += `<div class="druginfo-item">
+                        <strong>🤰 Pregnancy:</strong>
+                        ${formatText(w.pregnancy_risk)}
+                    </div>`;
+                }
+                if (w.lactation_risk) {
+                    pregBody += `<div class="druginfo-item">
+                        <strong>🍼 Lactation:</strong>
+                        ${formatText(w.lactation_risk)}
+                    </div>`;
+                }
+            });
+            if (pregBody) {
+                html += _section('🤰', 'Pregnancy & Lactation', pregBody, false);
+            }
+        }
+
+        // ── 11. Pricing & Reimbursement (collapsed) ──
+        html += _section('💰', 'Pricing & Reimbursement', renderPricingSection(pricing), false);
+
+        // ── 12. Brand Products (collapsed, loaded asynchronously) ──
+        html += _section('🏭', 'Brand Products',
+            `<div id="brands-section-card">
+                <div id="brands-loading" class="loading" style="font-size:13px;">Loading brand product data from FDA &amp; NADAC…</div>
+            </div>`, false);
 
         container.innerHTML = html;
 
@@ -487,20 +537,15 @@ const DrugInfoModule = (() => {
         const currencyOptions = Currency.optionsHtml();
 
         if (!data || data.error) {
-            return `<div class="druginfo-card" id="pricing-section-card">
-                <div class="druginfo-section-title-row">
-                    <h3 class="druginfo-section-title" style="margin-bottom:0;">💰 Pricing & Reimbursement</h3>
-                    <select id="currency-select" class="currency-select">${currencyOptions}</select>
-                </div>
+            return `<div id="pricing-section-card">
+                <select id="currency-select" class="currency-select">${currencyOptions}</select>
                 <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">Pricing data not available.</p>
             </div>`;
         }
 
-        let html = `<div class="druginfo-card" id="pricing-section-card">
-            <div class="druginfo-section-title-row">
-                <h3 class="druginfo-section-title" style="margin-bottom:0;">💰 Pricing & Reimbursement</h3>
-                <select id="currency-select" class="currency-select">${currencyOptions}</select>
-            </div>`;
+        let html = `<div id="pricing-section-card">
+            <select id="currency-select" class="currency-select" style="float:right;margin-bottom:8px;">${currencyOptions}</select>
+            <div style="clear:both;"></div>`;
 
         // Location note
         if (Currency.locationNote() && Currency.current() !== 'USD') {
@@ -801,14 +846,12 @@ const DrugInfoModule = (() => {
 
             if (!_brandsData.length) {
                 card.innerHTML = `
-                    <h3 class="druginfo-section-title">🏭 Brand Products</h3>
                     <p style="color:var(--text-muted);font-size:13px;">No brand-level product data available.</p>`;
                 return;
             }
 
             let html = `
                 <div class="brands-header-row">
-                    <h3 class="druginfo-section-title" style="margin-bottom:0;">🏭 Brand Products</h3>
                     <button id="compare-brands-btn" class="btn btn-small btn-outline" disabled>
                         ⚖️ Compare Selected
                     </button>
@@ -958,7 +1001,6 @@ const DrugInfoModule = (() => {
 
         } catch (err) {
             card.innerHTML = `
-                <h3 class="druginfo-section-title">🏭 Brand Products</h3>
                 <p style="color:var(--text-muted);font-size:13px;">Could not load brand data.</p>`;
         }
     }

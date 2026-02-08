@@ -311,6 +311,7 @@ def verify_drug_data(
     merged.hepatic_adjustment = _pick_longest(*[d.hepatic_adjustment for d in valid_data])
     merged.overdose_info = _pick_longest(*[d.overdose_info for d in valid_data])
     merged.underdose_info = _pick_longest(*[d.underdose_info for d in valid_data])
+    merged.administration_info = _pick_longest(*[d.administration_info for d in valid_data])
 
     # Safety: pick most detailed (safety-first)
     merged.contraindications = _pick_longest(*[d.contraindications for d in valid_data])

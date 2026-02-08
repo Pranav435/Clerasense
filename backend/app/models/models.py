@@ -100,6 +100,7 @@ class DosageGuideline(db.Model):
     hepatic_adjustment = db.Column(db.Text)
     overdose_info = db.Column(db.Text)
     underdose_info = db.Column(db.Text)
+    administration_info = db.Column(db.Text)
     source_id = db.Column(db.Integer, db.ForeignKey("sources.source_id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -113,6 +114,7 @@ class DosageGuideline(db.Model):
             "hepatic_adjustment": self.hepatic_adjustment,
             "overdose_info": self.overdose_info,
             "underdose_info": self.underdose_info,
+            "administration_info": self.administration_info,
             "source": self.source.to_dict() if self.source else None,
         }
 

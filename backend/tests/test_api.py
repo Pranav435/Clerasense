@@ -135,6 +135,16 @@ class TestDrugEndpoints:
         assert dg["underdose_info"] is not None
         assert "UNDERDOSE" in dg["underdose_info"]
 
+    def test_drug_dosage_includes_administration_info(self, client, auth_headers):
+        """Dosage guidelines must include administration_info field."""
+        resp = client.get("/api/drugs/1", headers=auth_headers)
+        drug = resp.get_json()["drug"]
+        assert "dosage_guidelines" in drug
+        dg = drug["dosage_guidelines"][0]
+        assert "administration_info" in dg
+        assert dg["administration_info"] is not None
+        assert "Oral" in dg["administration_info"]
+
     def test_search_drugs(self, client, auth_headers):
         resp = client.get("/api/drugs/?q=metf", headers=auth_headers)
         assert resp.status_code == 200
@@ -201,6 +211,7 @@ class TestComparisonEndpoint:
             for dg in drug["dosage_guidelines"]:
                 assert "overdose_info" in dg
                 assert "underdose_info" in dg
+                assert "administration_info" in dg
 
 
 # ════════════════════════════════════════════

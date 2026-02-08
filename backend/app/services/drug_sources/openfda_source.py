@@ -318,6 +318,19 @@ class OpenFDASource(DrugDataSource):
         # Overdose information (from FDA "overdosage" section)
         overdose_info = _clean_text(label.get("overdosage"), max_len=3000)
 
+        # Administration details (dosage forms, how supplied, storage)
+        admin_parts = []
+        dfs = _clean_text(label.get("dosage_forms_and_strengths"), max_len=1500)
+        if dfs:
+            admin_parts.append(dfs)
+        how_sup = _clean_text(label.get("how_supplied"), max_len=1500)
+        if how_sup:
+            admin_parts.append(how_sup)
+        storage = _clean_text(label.get("storage_and_handling"), max_len=800)
+        if storage:
+            admin_parts.append("Storage & Handling: " + storage)
+        administration_info = "\n\n".join(admin_parts)
+
         # Try to extract renal/hepatic from dosage text or use-in-specific-populations
         specific_populations = _clean_text(label.get("use_in_specific_populations"))
         if specific_populations:
@@ -411,6 +424,7 @@ class OpenFDASource(DrugDataSource):
             renal_adjustment=renal_adjustment,
             hepatic_adjustment=hepatic_adjustment,
             overdose_info=overdose_info,
+            administration_info=administration_info,
             contraindications=contraindications,
             black_box_warnings=black_box,
             pregnancy_risk=pregnancy_risk,

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS dosage_guidelines (
     hepatic_adjustment  TEXT,
     overdose_info       TEXT,
     underdose_info      TEXT,
+    administration_info TEXT,
     source_id           INT NOT NULL REFERENCES sources(source_id),
     created_at          TIMESTAMP DEFAULT NOW()
 );

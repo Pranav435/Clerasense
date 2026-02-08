@@ -171,6 +171,7 @@ def _insert_verified_drug(data: NormalizedDrugData, verification: VerificationRe
                 hepatic_adjustment=data.hepatic_adjustment or None,
                 overdose_info=data.overdose_info or None,
                 underdose_info=data.underdose_info or None,
+                administration_info=data.administration_info or None,
                 source_id=primary_source.source_id,
             )
             db.session.add(dosage)

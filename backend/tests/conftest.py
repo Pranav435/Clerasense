@@ -196,6 +196,7 @@ def _seed_test_data():
         renal_adjustment="eGFR <30: Contraindicated",
         overdose_info="OVERDOSE — Lactic acidosis: mortality rate ~50%. Hemodialysis recommended.",
         underdose_info="UNDERDOSE — Subtherapeutic below 1000 mg/day. Risk of poor glycemic control.",
+        administration_info="Route: Oral. Available forms: Tablets (500 mg, 850 mg, 1000 mg). Take with meals.",
         source_id=1,
     ))
     _db.session.add(DosageGuideline(
@@ -203,6 +204,7 @@ def _seed_test_data():
         renal_adjustment="CrCl <30: reduce dose",
         overdose_info="OVERDOSE — Severe hypotension, hyperkalemia. IV saline first-line.",
         underdose_info="UNDERDOSE — Inadequate BP control below 10 mg/day in most adults.",
+        administration_info="Route: Oral. Available forms: Tablets (2.5 mg, 5 mg, 10 mg, 20 mg, 40 mg). May be taken with or without food.",
         source_id=3,
     ))
 
