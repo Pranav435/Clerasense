@@ -61,6 +61,8 @@ def build_drug_text(drug: Drug) -> str:
         parts.append(f"Pediatric dosage: {dg.pediatric_dosage or ''}")
         parts.append(f"Renal adjustment: {dg.renal_adjustment or ''}")
         parts.append(f"Hepatic adjustment: {dg.hepatic_adjustment or ''}")
+        parts.append(f"Overdose information: {dg.overdose_info or ''}")
+        parts.append(f"Underdose / missed dose: {dg.underdose_info or ''}")
     for sw in drug.safety_warnings:
         parts.append(f"Contraindications: {sw.contraindications or ''}")
         parts.append(f"Black box warnings: {sw.black_box_warnings or ''}")

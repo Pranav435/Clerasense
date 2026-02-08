@@ -153,8 +153,9 @@ const API = (() => {
     }
 
     // ── Pricing ──
-    async function getPricing(drugName) {
-        return request(`/pricing/${encodeURIComponent(drugName)}`);
+    async function getPricing(drugName, country = '') {
+        const params = country ? `?country=${encodeURIComponent(country)}` : '';
+        return request(`/pricing/${encodeURIComponent(drugName)}${params}`);
     }
 
     // ── Brand Products ──

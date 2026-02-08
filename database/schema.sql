@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS dosage_guidelines (
     pediatric_dosage    TEXT,
     renal_adjustment    TEXT,
     hepatic_adjustment  TEXT,
+    overdose_info       TEXT,
+    underdose_info      TEXT,
     source_id           INT NOT NULL REFERENCES sources(source_id),
     created_at          TIMESTAMP DEFAULT NOW()
 );
@@ -87,16 +89,18 @@ CREATE TABLE IF NOT EXISTS pricing (
 );
 CREATE INDEX idx_pricing_drug ON pricing(drug_id);
 
--- Government reimbursement
+-- Government reimbursement (country-specific)
 CREATE TABLE IF NOT EXISTS reimbursement (
     id              SERIAL PRIMARY KEY,
     drug_id         INT NOT NULL REFERENCES drugs(id) ON DELETE CASCADE,
     scheme_name     VARCHAR(255) NOT NULL,
     coverage_notes  TEXT,
+    country         VARCHAR(5) NOT NULL DEFAULT 'US',
     source_id       INT NOT NULL REFERENCES sources(source_id),
     created_at      TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX idx_reimbursement_drug ON reimbursement(drug_id);
+CREATE INDEX idx_reimbursement_country ON reimbursement(drug_id, country);
 
 -- Doctor accounts
 CREATE TABLE IF NOT EXISTS doctors (

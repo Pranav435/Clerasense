@@ -326,6 +326,7 @@ class DailyMedSource(DrugDataSource):
         drug_interactions_text = _clean_xml_text(sections.get("drug_interactions", ""))
         interactions = _parse_interaction_text(drug_interactions_text) if drug_interactions_text else []
         adverse = _clean_xml_text(sections.get("adverse_reactions", ""))
+        overdosage = _clean_xml_text(sections.get("overdosage", ""))
 
         # Enrich contraindications with warnings & adverse reactions
         if warnings and contraindications:
@@ -352,6 +353,7 @@ class DailyMedSource(DrugDataSource):
             mechanism_of_action=mechanism,
             indications=[indications] if indications else [],
             adult_dosage=dosage,
+            overdose_info=overdosage,
             contraindications=contraindications,
             black_box_warnings=boxed,
             pregnancy_risk=pregnancy,

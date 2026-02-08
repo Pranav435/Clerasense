@@ -169,6 +169,8 @@ def _insert_verified_drug(data: NormalizedDrugData, verification: VerificationRe
                 pediatric_dosage=data.pediatric_dosage or None,
                 renal_adjustment=data.renal_adjustment or None,
                 hepatic_adjustment=data.hepatic_adjustment or None,
+                overdose_info=data.overdose_info or None,
+                underdose_info=data.underdose_info or None,
                 source_id=primary_source.source_id,
             )
             db.session.add(dosage)

@@ -51,7 +51,7 @@ const PricingModule = (() => {
         const resultsEl = document.getElementById('pricing-results');
         resultsEl.innerHTML = '<div class="loading">Looking up real pricing data from CMS NADAC & FDA… may take a moment for new drugs.</div>';
 
-        const data = await API.getPricing(name);
+        const data = await API.getPricing(name, App.getUserCountry() || 'US');
 
         if (data.error) {
             resultsEl.innerHTML = `<p class="error-msg">${data.error}</p>`;
@@ -164,17 +164,37 @@ const PricingModule = (() => {
             html += '<p style="color:var(--text-muted);font-size:13px;">Pricing data not available in verified sources.</p>';
         }
 
-        // Reimbursement
+        // Reimbursement – country-specific government schemes
         if (data.reimbursement && data.reimbursement.length) {
-            html += '<h3 class="section-heading" style="margin-top:16px;">Government Reimbursement Coverage</h3>';
+            const countryLabel = data.reimbursement_country || 'your country';
+            html += `<h3 class="section-heading" style="margin-top:16px;">🏛️ Government Reimbursement Schemes</h3>`;
+            html += `<div class="reimb-country-note">Showing schemes for <strong>${countryLabel}</strong> (based on your location)</div>`;
             data.reimbursement.forEach(r => {
-                html += `
-                    <div class="reimbursement-item">
-                        <div class="reimbursement-scheme">${r.scheme_name}</div>
-                        <div>${r.coverage_notes || 'No additional notes.'}</div>
-                        ${renderSourceBadge(r.source)}
+                const statusCls = r.coverage_status === 'likely_covered' ? 'reimb-likely'
+                                : r.coverage_status === 'may_be_covered' ? 'reimb-maybe'
+                                : r.coverage_status === 'inpatient_only' ? 'reimb-inpatient'
+                                : 'reimb-check';
+                const statusLabel = r.coverage_status === 'likely_covered' ? '✅ Likely Covered'
+                                  : r.coverage_status === 'may_be_covered' ? '🟡 May Be Covered'
+                                  : r.coverage_status === 'inpatient_only' ? '🏥 Inpatient Only'
+                                  : '🔍 Check Formulary';
+                html += `<div class="reimb-card ${statusCls}">
+                    <div class="reimb-header">
+                        <div class="reimb-scheme-name">${r.scheme_name}</div>
+                        <span class="reimb-status-chip ${statusCls}">${statusLabel}</span>
                     </div>
-                `;
+                    <p class="reimb-desc">${r.description}</p>`;
+                if (r.coverage_note) {
+                    html += `<div class="reimb-row"><span class="reimb-label">Drug Note</span><span>${r.coverage_note}</span></div>`;
+                }
+                if (r.eligibility) {
+                    html += `<div class="reimb-row"><span class="reimb-label">Eligibility</span><span>${r.eligibility}</span></div>`;
+                }
+                if (r.how_to_access) {
+                    html += `<div class="reimb-row"><span class="reimb-label">How to Access</span><span>${r.how_to_access}</span></div>`;
+                }
+                html += renderSourceBadge(r.source);
+                html += `</div>`;
             });
         }
 

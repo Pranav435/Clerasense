@@ -253,6 +253,8 @@ def _collect_dosage_guidelines(drugs_found: list) -> dict:
                 "pediatric_dosage": dg.pediatric_dosage,
                 "renal_adjustment": dg.renal_adjustment,
                 "hepatic_adjustment": dg.hepatic_adjustment,
+                "overdose_info": dg.overdose_info,
+                "underdose_info": dg.underdose_info,
                 "source": dg.source.to_dict() if dg.source else None,
             })
         if entries:

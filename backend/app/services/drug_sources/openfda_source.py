@@ -315,6 +315,9 @@ class OpenFDASource(DrugDataSource):
         renal_adjustment = ""
         hepatic_adjustment = ""
 
+        # Overdose information (from FDA "overdosage" section)
+        overdose_info = _clean_text(label.get("overdosage"), max_len=3000)
+
         # Try to extract renal/hepatic from dosage text or use-in-specific-populations
         specific_populations = _clean_text(label.get("use_in_specific_populations"))
         if specific_populations:
@@ -407,6 +410,7 @@ class OpenFDASource(DrugDataSource):
             pediatric_dosage=pediatric_dosage,
             renal_adjustment=renal_adjustment,
             hepatic_adjustment=hepatic_adjustment,
+            overdose_info=overdose_info,
             contraindications=contraindications,
             black_box_warnings=black_box,
             pregnancy_risk=pregnancy_risk,

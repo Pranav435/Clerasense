@@ -98,6 +98,8 @@ class DosageGuideline(db.Model):
     pediatric_dosage = db.Column(db.Text)
     renal_adjustment = db.Column(db.Text)
     hepatic_adjustment = db.Column(db.Text)
+    overdose_info = db.Column(db.Text)
+    underdose_info = db.Column(db.Text)
     source_id = db.Column(db.Integer, db.ForeignKey("sources.source_id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -109,6 +111,8 @@ class DosageGuideline(db.Model):
             "pediatric_dosage": self.pediatric_dosage,
             "renal_adjustment": self.renal_adjustment,
             "hepatic_adjustment": self.hepatic_adjustment,
+            "overdose_info": self.overdose_info,
+            "underdose_info": self.underdose_info,
             "source": self.source.to_dict() if self.source else None,
         }
 
@@ -209,6 +213,7 @@ class Reimbursement(db.Model):
     drug_id = db.Column(db.Integer, db.ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False)
     scheme_name = db.Column(db.String(255), nullable=False)
     coverage_notes = db.Column(db.Text)
+    country = db.Column(db.String(5), nullable=False, default="US")
     source_id = db.Column(db.Integer, db.ForeignKey("sources.source_id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -218,6 +223,7 @@ class Reimbursement(db.Model):
         return {
             "scheme_name": self.scheme_name,
             "coverage_notes": self.coverage_notes,
+            "country": self.country,
             "source": self.source.to_dict() if self.source else None,
         }
 

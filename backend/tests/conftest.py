@@ -193,11 +193,17 @@ def _seed_test_data():
     # ── Dosage Guidelines ──
     _db.session.add(DosageGuideline(
         drug_id=1, adult_dosage="500mg twice daily",
-        renal_adjustment="eGFR <30: Contraindicated", source_id=1,
+        renal_adjustment="eGFR <30: Contraindicated",
+        overdose_info="OVERDOSE — Lactic acidosis: mortality rate ~50%. Hemodialysis recommended.",
+        underdose_info="UNDERDOSE — Subtherapeutic below 1000 mg/day. Risk of poor glycemic control.",
+        source_id=1,
     ))
     _db.session.add(DosageGuideline(
         drug_id=2, adult_dosage="10mg once daily",
-        renal_adjustment="CrCl <30: reduce dose", source_id=3,
+        renal_adjustment="CrCl <30: reduce dose",
+        overdose_info="OVERDOSE — Severe hypotension, hyperkalemia. IV saline first-line.",
+        underdose_info="UNDERDOSE — Inadequate BP control below 10 mg/day in most adults.",
+        source_id=3,
     ))
 
     # ── Safety Warnings (with FAERS data for Metformin) ──

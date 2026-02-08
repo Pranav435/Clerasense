@@ -205,6 +205,7 @@ const ComparisonModule = (() => {
     function renderComparison(data, container) {
         _lastData = data;
         _lastContainer = container;
+        _cmpExpandId = 0;  // reset for fresh IDs on re-render
         const drugs = data.comparison || [];
         if (!drugs.length) {
             container.innerHTML = '<p class="error-msg">No drugs found for comparison.</p>';
@@ -231,6 +232,8 @@ const ComparisonModule = (() => {
             { key: 'mechanism', label: 'Mechanism of Action', icon: '🧬' },
             { key: 'indications', label: 'Approved Indications', icon: '📋' },
             { key: 'dosage', label: 'Adult Dosage', icon: '💊' },
+            { key: 'overdose', label: 'Overdose Information', icon: '🔴' },
+            { key: 'underdose', label: 'Underdose / Missed Dose', icon: '🟡' },
             { key: 'safety', label: 'Key Safety Warnings', icon: '⚠️' },
             { key: 'interactions', label: 'Notable Interactions', icon: '🔗' },
             { key: 'pricing', label: 'Approximate Cost', icon: '💰' },
@@ -289,20 +292,42 @@ const ComparisonModule = (() => {
         switch (key) {
             case 'mechanism':
                 return drug.mechanism_of_action
-                    ? `<p>${_truncate(drug.mechanism_of_action, 400)}</p>`
+                    ? _formatText(drug.mechanism_of_action)
                     : '<span class="cmp-na">N/A</span>';
 
             case 'indications':
                 if (!drug.indications || !drug.indications.length) return '<span class="cmp-na">N/A</span>';
-                return '<ul class="cmp-bullets">' +
-                    drug.indications.map(i =>
-                        `<li>${_truncate(i.approved_use, 150)}</li>`
-                    ).join('') + '</ul>';
+                {
+                    const items = drug.indications.map(i => _sentenceCase(i.approved_use));
+                    if (items.length <= 3) {
+                        return '<ul class="cmp-bullets">' + items.map(t => `<li>${t}</li>`).join('') + '</ul>';
+                    }
+                    const fullHtml = '<ul class="cmp-bullets">' + items.map(t => `<li>${t}</li>`).join('') + '</ul>';
+                    const previewHtml = '<ul class="cmp-bullets">' + items.slice(0, 3).map(t => `<li>${t}</li>`).join('') + '</ul>';
+                    const id = 'exp-cmp-' + (++_cmpExpandId);
+                    return `<div class="text-expandable" id="${id}">
+                        <div class="text-preview">${previewHtml}</div>
+                        <div class="text-full" style="display:none;">${fullHtml}</div>
+                        <button class="read-more-toggle" onclick="(function(el){var p=el.closest('.text-expandable');p.querySelector('.text-preview').style.display=p.querySelector('.text-preview').style.display==='none'?'':'none';p.querySelector('.text-full').style.display=p.querySelector('.text-full').style.display==='none'?'':'none';el.textContent=el.textContent==='Read more'?'Show less':'Read more';})(this)">Read more</button>
+                    </div>`;
+                }
 
             case 'dosage':
                 if (!drug.dosage_guidelines || !drug.dosage_guidelines.length) return '<span class="cmp-na">N/A</span>';
                 return drug.dosage_guidelines.map(d =>
-                    d.adult_dosage ? `<p>${_truncate(d.adult_dosage, 300)}</p>` : ''
+                    d.adult_dosage ? _formatText(d.adult_dosage) : ''
+                ).join('') || '<span class="cmp-na">N/A</span>';
+
+            case 'overdose':
+                if (!drug.dosage_guidelines || !drug.dosage_guidelines.length) return '<span class="cmp-na">N/A</span>';
+                return drug.dosage_guidelines.map(d =>
+                    d.overdose_info ? _formatText(d.overdose_info) : ''
+                ).join('') || '<span class="cmp-na">N/A</span>';
+
+            case 'underdose':
+                if (!drug.dosage_guidelines || !drug.dosage_guidelines.length) return '<span class="cmp-na">N/A</span>';
+                return drug.dosage_guidelines.map(d =>
+                    d.underdose_info ? _formatText(d.underdose_info) : ''
                 ).join('') || '<span class="cmp-na">N/A</span>';
 
             case 'safety': {
@@ -310,13 +335,13 @@ const ComparisonModule = (() => {
                 let h = '';
                 drug.safety_warnings.forEach(w => {
                     if (w.black_box_warnings) {
-                        h += `<div class="cmp-blackbox">⛔ ${_truncate(w.black_box_warnings, 200)}</div>`;
+                        h += `<div class="cmp-blackbox">⛔ ${_formatText(w.black_box_warnings)}</div>`;
                     }
                     if (w.contraindications) {
-                        h += `<p><strong>Contraindications:</strong> ${_truncate(w.contraindications, 200)}</p>`;
+                        h += `<div><strong>Contraindications:</strong> ${_formatText(w.contraindications)}</div>`;
                     }
                     if (w.pregnancy_risk) {
-                        h += `<p><strong>Pregnancy:</strong> ${_truncate(w.pregnancy_risk, 100)}</p>`;
+                        h += `<div><strong>Pregnancy:</strong> ${_formatText(w.pregnancy_risk)}</div>`;
                     }
                     // FAERS summary
                     if (w.adverse_event_count) {
@@ -340,8 +365,8 @@ const ComparisonModule = (() => {
                     };
                     const col = sevColors[ix.severity] || '#888';
                     return `<div class="cmp-interaction">
-                        <span>${ix.interacting_drug}</span>
-                        <span class="cmp-sev-badge" style="background:${col};">${ix.severity}</span>
+                        <span>${_sentenceCase(ix.interacting_drug)}</span>
+                        <span class="cmp-sev-badge" style="background:${col};">${_sentenceCase(ix.severity)}</span>
                     </div>`;
                 }).join('');
 
@@ -374,7 +399,7 @@ const ComparisonModule = (() => {
                         }
                         if (!unitMatch && !monthlyMatch) {
                             const first = p.approximate_cost.split(';')[0].trim();
-                            txt += `<div class="cmp-price-cost">${_truncate(first, 120)}</div>`;
+                            txt += `<div class="cmp-price-cost">${_sentenceCase(first)}</div>`;
                         }
                     }
                     return `<div class="cmp-pricing-entry">${txt}</div>`;
@@ -399,7 +424,98 @@ const ComparisonModule = (() => {
 
     function _truncate(str, max) {
         if (!str) return '';
-        return str.length > max ? str.substring(0, max) + '…' : str;
+        // Strip black squares and block chars
+        const clean = str.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢]/g, '');
+        return clean.length > max ? clean.substring(0, max) + '…' : clean;
+    }
+
+    /**
+     * Sentence case: capitalize first letter of each sentence/bullet,
+     * preserving ALL-CAPS words and abbreviations.
+     */
+    function _sentenceCase(text) {
+        if (!text) return '';
+        // Strip black squares and block chars
+        let result = text.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢]/g, '');
+        result = result.replace(/^\s*([a-z])/, (_, c) => c.toUpperCase());
+        result = result.replace(/([.!?:;])\s+([a-z])/g, (_, p, c) => p + ' ' + c.toUpperCase());
+        return result;
+    }
+
+    let _cmpExpandId = 0;
+
+    /**
+     * Format a medical text blob into readable bullet-pointed HTML for comparison cells.
+     * For long content, shows a preview with "Read more" toggle.
+     */
+    function _formatText(raw) {
+        if (!raw) return '';
+        // Strip black squares, block chars, and other visual artifacts
+        let text = raw.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢]/g, '').trim();
+
+        let parts = text
+            .split(/(?<=[.;])\s+|\s*[•●▪►\-–—]\s+|\s*\n\s*|\s*(?=\(\d+\)\s)|\s*(?=\d+\.\s)/)
+            .map(s => s.trim())
+            .map(s => s.replace(/^\(\s*\d+\s*\)\s*/, '').replace(/^\d+\.\s*/, '').replace(/^[-–—]\s*/, ''))
+            .map(s => s.trim())
+            .filter(s => s.length > 5);
+
+        const seen = new Set();
+        parts = parts.filter(p => {
+            const key = p.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        parts = parts.map(p => _sentenceCase(p));
+
+        let fullHtml;
+
+        if (parts.length <= 1 && text.length < 120) {
+            return `<p>${_sentenceCase(text)}</p>`;
+        }
+
+        if (parts.length <= 1) {
+            const commaParts = text.split(/,\s*/)
+                .map(s => s.trim())
+                .filter(s => s.length > 5);
+            if (commaParts.length >= 3) {
+                parts = commaParts.map(p => _sentenceCase(p));
+                fullHtml = '<ul class="cmp-bullets">' +
+                    parts.map(p => `<li>${p}</li>`).join('') +
+                    '</ul>';
+            } else {
+                fullHtml = `<p>${_sentenceCase(text)}</p>`;
+            }
+        } else {
+            fullHtml = '<ul class="cmp-bullets">' +
+                parts.map(p => `<li>${p}</li>`).join('') +
+                '</ul>';
+        }
+
+        // Short enough — no expand/collapse needed
+        if (text.length <= 250 && parts.length <= 3) {
+            return fullHtml;
+        }
+
+        // Build a preview: first 2 bullets or first 200 chars
+        let previewHtml;
+        if (parts.length > 2) {
+            previewHtml = '<ul class="cmp-bullets">' +
+                parts.slice(0, 2).map(p => `<li>${p}</li>`).join('') +
+                '</ul>';
+        } else {
+            const previewText = _sentenceCase(text).substring(0, 200) + '…';
+            previewHtml = `<p>${previewText}</p>`;
+        }
+
+        const id = 'exp-cmp-' + (++_cmpExpandId);
+        return `<div class="text-expandable" id="${id}">
+            <div class="text-preview">${previewHtml}</div>
+            <div class="text-full" style="display:none;">${fullHtml}</div>
+            <button class="read-more-toggle" onclick="(function(el){var p=el.closest('.text-expandable');p.querySelector('.text-preview').style.display=p.querySelector('.text-preview').style.display==='none'?'':'none';p.querySelector('.text-full').style.display=p.querySelector('.text-full').style.display==='none'?'':'none';el.textContent=el.textContent==='Read more'?'Show less':'Read more';})(this)">Read more</button>
+        </div>`;
     }
 
     return { render };

@@ -121,6 +121,20 @@ class TestDrugEndpoints:
         for pricing in drug.get("pricing", []):
             assert pricing["source"] is not None
 
+    def test_drug_dosage_includes_overdose_underdose(self, client, auth_headers):
+        """Dosage guidelines must include overdose_info and underdose_info fields."""
+        resp = client.get("/api/drugs/1", headers=auth_headers)
+        drug = resp.get_json()["drug"]
+        assert "dosage_guidelines" in drug
+        assert len(drug["dosage_guidelines"]) >= 1
+        dg = drug["dosage_guidelines"][0]
+        assert "overdose_info" in dg
+        assert "underdose_info" in dg
+        assert dg["overdose_info"] is not None
+        assert "OVERDOSE" in dg["overdose_info"]
+        assert dg["underdose_info"] is not None
+        assert "UNDERDOSE" in dg["underdose_info"]
+
     def test_search_drugs(self, client, auth_headers):
         resp = client.get("/api/drugs/?q=metf", headers=auth_headers)
         assert resp.status_code == 200
@@ -176,6 +190,17 @@ class TestComparisonEndpoint:
         for drug in resp.get_json()["comparison"]:
             assert "safety_warnings" in drug
             assert "pricing" in drug
+
+    def test_comparison_includes_overdose_underdose(self, client, auth_headers):
+        """Compared drugs include overdose_info and underdose_info in dosage guidelines."""
+        resp = client.post("/api/comparison/", headers=auth_headers, json={
+            "drug_names": ["Metformin", "Lisinopril"]
+        })
+        for drug in resp.get_json()["comparison"]:
+            assert "dosage_guidelines" in drug
+            for dg in drug["dosage_guidelines"]:
+                assert "overdose_info" in dg
+                assert "underdose_info" in dg
 
 
 # ════════════════════════════════════════════
@@ -495,9 +520,55 @@ class TestPricingEndpoint:
         assert len(reimb) >= 1
         assert reimb[0]["scheme_name"] == "Medicare Part D"
 
+    def test_pricing_reimbursement_us_schemes(self, client, auth_headers):
+        """US reimbursement should return Medicare, Medicaid, 340B, and Extra Help."""
+        resp = client.get("/api/pricing/Metformin?country=US", headers=auth_headers)
+        data = resp.get_json()
+        reimb = data["reimbursement"]
+        assert data["reimbursement_country"] == "US"
+        scheme_names = [r["scheme_name"] for r in reimb]
+        assert "Medicare Part D" in scheme_names
+        assert "Medicaid" in scheme_names
+        assert "340B Drug Pricing Program" in scheme_names
 
-# ════════════════════════════════════════════
-# BRAND PRODUCTS
+    def test_pricing_reimbursement_india_schemes(self, client, auth_headers):
+        """India reimbursement should return PMBJP, NLEM, PMJAY, CGHS, ESI."""
+        resp = client.get("/api/pricing/Metformin?country=IN", headers=auth_headers)
+        data = resp.get_json()
+        reimb = data["reimbursement"]
+        assert data["reimbursement_country"] == "IN"
+        scheme_names = [r["scheme_name"] for r in reimb]
+        assert any("Jan" in s or "PMBJP" in s for s in scheme_names)
+        assert any("NLEM" in s for s in scheme_names)
+
+    def test_pricing_reimbursement_has_source(self, client, auth_headers):
+        """Every reimbursement entry must have a verified source with URL."""
+        resp = client.get("/api/pricing/Metformin?country=US", headers=auth_headers)
+        reimb = resp.get_json()["reimbursement"]
+        for r in reimb:
+            assert "source" in r and r["source"] is not None
+            assert r["source"]["authority"]
+            assert r["source"]["url"]
+            assert r["source"]["document_title"]
+
+    def test_pricing_reimbursement_has_coverage_status(self, client, auth_headers):
+        """Each reimbursement entry should have coverage_status and coverage_note."""
+        resp = client.get("/api/pricing/Metformin?country=US", headers=auth_headers)
+        reimb = resp.get_json()["reimbursement"]
+        valid_statuses = {"likely_covered", "may_be_covered", "check_formulary", "inpatient_only"}
+        for r in reimb:
+            assert r.get("coverage_status") in valid_statuses
+            assert r.get("coverage_note")
+
+    def test_pricing_reimbursement_countries_endpoint(self, client, auth_headers):
+        """GET /pricing/reimbursement/countries should return supported countries."""
+        resp = client.get("/api/pricing/reimbursement/countries", headers=auth_headers)
+        assert resp.status_code == 200
+        countries = resp.get_json()["countries"]
+        codes = [c["code"] for c in countries]
+        assert "US" in codes
+        assert "IN" in codes
+        assert "GB" in codes
 # ════════════════════════════════════════════
 
 class TestBrandEndpoints:

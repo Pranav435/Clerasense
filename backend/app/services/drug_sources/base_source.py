@@ -22,6 +22,8 @@ class NormalizedDrugData:
     pediatric_dosage: str = ""
     renal_adjustment: str = ""
     hepatic_adjustment: str = ""
+    overdose_info: str = ""
+    underdose_info: str = ""
     contraindications: str = ""
     black_box_warnings: str = ""
     pregnancy_risk: str = ""

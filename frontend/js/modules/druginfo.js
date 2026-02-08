@@ -183,9 +183,10 @@ const DrugInfoModule = (() => {
         await Currency.loadRates();
 
         // Fetch drug profile AND pricing in parallel
+        const country = App.getUserCountry() || 'US';
         const [rawDrug, pricingData] = await Promise.all([
             API.getDrugByName(name),
-            API.getPricing(name),
+            API.getPricing(name, country),
         ]);
 
         if (rawDrug.error) {
@@ -247,6 +248,7 @@ const DrugInfoModule = (() => {
 
     /* ── Main drug profile renderer ── */
     function renderDrugProfile(drug, pricing, container) {
+        _expandId = 0;  // reset for fresh IDs on re-render
         let html = '';
 
         // ── Header Card ──
@@ -262,7 +264,8 @@ const DrugInfoModule = (() => {
             </div>
             ${drug.mechanism_of_action
                 ? `<div class="druginfo-mechanism">
-                       <strong>Mechanism of Action:</strong> ${truncate(drug.mechanism_of_action, 600)}
+                       <strong>Mechanism of Action:</strong>
+                       ${formatText(drug.mechanism_of_action)}
                    </div>` : ''}
             ${renderSourceBadge(drug.source)}
         </div>`;
@@ -281,7 +284,7 @@ const DrugInfoModule = (() => {
                 <h3 class="druginfo-section-title">📋 Approved Indications</h3>`;
             uniqueInd.forEach(ind => {
                 html += `<div class="druginfo-item">
-                    ${formatText(ind.approved_use, 500)}
+                    ${formatText(ind.approved_use)}
                     ${renderSourceBadge(ind.source)}
                 </div>`;
             });
@@ -297,28 +300,47 @@ const DrugInfoModule = (() => {
                 if (d.adult_dosage) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Adult Dosage</div>
-                        <div class="dosage-value">${formatText(d.adult_dosage, 500)}</div>
+                        <div class="dosage-value">${formatText(d.adult_dosage)}</div>
                     </div>`;
                 }
                 if (d.pediatric_dosage) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Pediatric Dosage</div>
-                        <div class="dosage-value">${formatText(d.pediatric_dosage, 500)}</div>
+                        <div class="dosage-value">${formatText(d.pediatric_dosage)}</div>
                     </div>`;
                 }
                 if (d.renal_adjustment) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Renal Adjustment</div>
-                        <div class="dosage-value">${formatText(d.renal_adjustment, 500)}</div>
+                        <div class="dosage-value">${formatText(d.renal_adjustment)}</div>
                     </div>`;
                 }
                 if (d.hepatic_adjustment) {
                     html += `<div class="druginfo-dosage-cell">
                         <div class="dosage-label">Hepatic Adjustment</div>
-                        <div class="dosage-value">${formatText(d.hepatic_adjustment, 500)}</div>
+                        <div class="dosage-value">${formatText(d.hepatic_adjustment)}</div>
                     </div>`;
                 }
                 html += `</div>`;
+
+                // ── Overdose & Underdose Information ──
+                if (d.overdose_info || d.underdose_info) {
+                    html += `<div class="druginfo-dose-safety">`;
+                    if (d.overdose_info) {
+                        html += `<div class="druginfo-overdose">
+                            <div class="dose-safety-header overdose-header">🔴 Overdose Information</div>
+                            <div class="dose-safety-body">${formatText(d.overdose_info)}</div>
+                        </div>`;
+                    }
+                    if (d.underdose_info) {
+                        html += `<div class="druginfo-underdose">
+                            <div class="dose-safety-header underdose-header">🟡 Underdose / Missed Dose</div>
+                            <div class="dose-safety-body">${formatText(d.underdose_info)}</div>
+                        </div>`;
+                    }
+                    html += `</div>`;
+                }
+
                 html += renderSourceBadge(d.source);
             });
             html += `</div>`;
@@ -332,25 +354,25 @@ const DrugInfoModule = (() => {
                 if (w.black_box_warnings) {
                     html += `<div class="druginfo-blackbox">
                         <strong>⛔ BLACK BOX WARNING</strong>
-                        ${formatText(w.black_box_warnings, 800)}
+                        ${formatText(w.black_box_warnings)}
                     </div>`;
                 }
                 if (w.contraindications) {
                     html += `<div class="druginfo-item">
                         <strong>🚫 Contraindications:</strong>
-                        ${formatText(w.contraindications, 800)}
+                        ${formatText(w.contraindications)}
                     </div>`;
                 }
                 if (w.pregnancy_risk) {
                     html += `<div class="druginfo-item">
                         <strong>🤰 Pregnancy:</strong>
-                        ${formatText(w.pregnancy_risk, 500)}
+                        ${formatText(w.pregnancy_risk)}
                     </div>`;
                 }
                 if (w.lactation_risk) {
                     html += `<div class="druginfo-item">
                         <strong>🍼 Lactation:</strong>
-                        ${formatText(w.lactation_risk, 500)}
+                        ${formatText(w.lactation_risk)}
                     </div>`;
                 }
                 html += renderAdverseEvents(w);
@@ -371,9 +393,9 @@ const DrugInfoModule = (() => {
                 };
                 const sevColor = sevColors[ix.severity] || '#888';
                 html += `<div class="druginfo-interaction-row">
-                    <span class="interaction-drug">${ix.interacting_drug}</span>
-                    <span class="interaction-severity" style="background:${sevColor};">${ix.severity}</span>
-                    <span class="interaction-desc">${ix.description}</span>
+                    <span class="interaction-drug">${sentenceCase(ix.interacting_drug)}</span>
+                    <span class="interaction-severity" style="background:${sevColor};">${sentenceCase(ix.severity)}</span>
+                    <span class="interaction-desc">${sentenceCase(ix.description || '')}</span>
                 </div>`;
             });
             html += `</div></div>`;
@@ -558,15 +580,37 @@ const DrugInfoModule = (() => {
             html += '<p style="color:var(--text-muted);font-size:13px;">No verified pricing data available.</p>';
         }
 
-        // Reimbursement
+        // Reimbursement – country-specific government schemes
         if (data.reimbursement && data.reimbursement.length) {
-            html += '<h4 class="druginfo-subsection-title">Government Reimbursement</h4>';
+            const countryLabel = data.reimbursement_country || 'your country';
+            html += `<h4 class="druginfo-subsection-title">🏛️ Government Reimbursement Schemes</h4>`;
+            html += `<div class="reimb-country-note">Showing schemes for <strong>${countryLabel}</strong> (based on your location)</div>`;
             data.reimbursement.forEach(r => {
-                html += `<div class="reimbursement-item">
-                    <div class="reimbursement-scheme">${r.scheme_name}</div>
-                    <div>${r.coverage_notes || 'No additional notes.'}</div>
-                    ${renderSourceBadge(r.source)}
-                </div>`;
+                const statusCls = r.coverage_status === 'likely_covered' ? 'reimb-likely'
+                                : r.coverage_status === 'may_be_covered' ? 'reimb-maybe'
+                                : r.coverage_status === 'inpatient_only' ? 'reimb-inpatient'
+                                : 'reimb-check';
+                const statusLabel = r.coverage_status === 'likely_covered' ? '✅ Likely Covered'
+                                  : r.coverage_status === 'may_be_covered' ? '🟡 May Be Covered'
+                                  : r.coverage_status === 'inpatient_only' ? '🏥 Inpatient Only'
+                                  : '🔍 Check Formulary';
+                html += `<div class="reimb-card ${statusCls}">
+                    <div class="reimb-header">
+                        <div class="reimb-scheme-name">${r.scheme_name}</div>
+                        <span class="reimb-status-chip ${statusCls}">${statusLabel}</span>
+                    </div>
+                    <p class="reimb-desc">${r.description}</p>`;
+                if (r.coverage_note) {
+                    html += `<div class="reimb-row"><span class="reimb-label">Drug Note</span><span>${r.coverage_note}</span></div>`;
+                }
+                if (r.eligibility) {
+                    html += `<div class="reimb-row"><span class="reimb-label">Eligibility</span><span>${r.eligibility}</span></div>`;
+                }
+                if (r.how_to_access) {
+                    html += `<div class="reimb-row"><span class="reimb-label">How to Access</span><span>${r.how_to_access}</span></div>`;
+                }
+                html += renderSourceBadge(r.source);
+                html += `</div>`;
             });
         }
 
@@ -580,23 +624,48 @@ const DrugInfoModule = (() => {
 
     function truncate(str, max) {
         if (!str) return '';
-        return str.length > max ? str.substring(0, max) + '…' : str;
+        // Strip black squares and block chars
+        const clean = str.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢]/g, '');
+        return clean.length > max ? clean.substring(0, max) + '…' : clean;
     }
 
     /**
-     * Format a long medical text blob into readable bullet-pointed HTML.
-     * Splits on sentence boundaries; deduplicates; wraps in <ul>.
+     * Apply sentence case: capitalize first letter of each sentence/bullet,
+     * preserving ALL-CAPS words, proper nouns, and abbreviations.
      */
-    function formatText(raw, maxLen) {
-        if (!raw) return '';
-        let text = raw.trim();
-        if (maxLen) text = truncate(text, maxLen);
+    function sentenceCase(text) {
+        if (!text) return '';
+        // Strip black squares and block chars
+        let result = text.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢]/g, '');
+        // Capitalize the very first character
+        result = result.replace(/^\s*([a-z])/, (_, c) => c.toUpperCase());
+        // Capitalize after sentence-ending punctuation followed by space
+        result = result.replace(/([.!?:;])\s+([a-z])/g, (_, p, c) => p + ' ' + c.toUpperCase());
+        // Capitalize after bullet dash or colon at start of line
+        result = result.replace(/(^|\n)\s*[-–—]\s*([a-z])/g, (_, pre, c) => pre + '- ' + c.toUpperCase());
+        return result;
+    }
 
-        // Split into sentences at: period+space, semicolons, or existing bullet chars
+    let _expandId = 0;
+
+    /**
+     * Format a long medical text blob into readable bullet-pointed HTML.
+     * Splits on sentence boundaries, numbered lists, semicolons, and bullet chars;
+     * deduplicates; applies sentence case; wraps in <ul>.
+     * For very long content, shows a preview with "Read more" toggle.
+     */
+    function formatText(raw) {
+        if (!raw) return '';
+        // Strip black squares, block chars, and other visual artifacts
+        let text = raw.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢■]/g, '').trim();
+
+        // Normalise various separators
         let parts = text
-            .split(/(?<=[.;])\s+|\s*[•●▪]\s*/)
+            .split(/(?<=[.;])\s+|\s*[•●▪►\-–—]\s+|\s*\n\s*|\s*(?=\(\d+\)\s)|\s*(?=\d+\.\s)/)
             .map(s => s.trim())
-            .filter(s => s.length > 8);  // drop tiny fragments
+            .map(s => s.replace(/^\(\s*\d+\s*\)\s*/, '').replace(/^\d+\.\s*/, '').replace(/^[-–—]\s*/, ''))
+            .map(s => s.trim())
+            .filter(s => s.length > 5);
 
         // Deduplicate (some data has repeated sentences)
         const seen = new Set();
@@ -607,19 +676,57 @@ const DrugInfoModule = (() => {
             return true;
         });
 
+        // Apply sentence case to each part
+        parts = parts.map(p => sentenceCase(p));
+
+        let fullHtml;
+
         // If 1 short item, just return as paragraph
         if (parts.length <= 1 && text.length < 150) {
-            return `<p>${text}</p>`;
+            return `<p>${sentenceCase(text)}</p>`;
         }
 
         if (parts.length <= 1) {
-            // Still one block but long — return as paragraph
-            return `<p>${text}</p>`;
+            const commaParts = text.split(/,\s*/)
+                .map(s => s.trim())
+                .filter(s => s.length > 5);
+            if (commaParts.length >= 3) {
+                parts = commaParts.map(p => sentenceCase(p));
+                fullHtml = '<ul class="druginfo-bullets">' +
+                    parts.map(p => `<li>${p}</li>`).join('') +
+                    '</ul>';
+            } else {
+                fullHtml = `<p>${sentenceCase(text)}</p>`;
+            }
+        } else {
+            fullHtml = '<ul class="druginfo-bullets">' +
+                parts.map(p => `<li>${p}</li>`).join('') +
+                '</ul>';
         }
 
-        return '<ul class="druginfo-bullets">' +
-            parts.map(p => `<li>${p.replace(/^\(\s*\d+\s*\)\s*/, '').replace(/^\d+\.\d+\s*/, '')}</li>`).join('') +
-            '</ul>';
+        // If short enough, no need for expand/collapse
+        if (text.length <= 350 && parts.length <= 4) {
+            return fullHtml;
+        }
+
+        // Build a preview: first 3 bullets or first 300 chars of paragraph
+        let previewHtml;
+        if (parts.length > 3) {
+            previewHtml = '<ul class="druginfo-bullets">' +
+                parts.slice(0, 3).map(p => `<li>${p}</li>`).join('') +
+                '</ul>';
+        } else {
+            // Single long paragraph — show first ~300 chars
+            const previewText = sentenceCase(text).substring(0, 300) + '…';
+            previewHtml = `<p>${previewText}</p>`;
+        }
+
+        const id = 'exp-di-' + (++_expandId);
+        return `<div class="text-expandable" id="${id}">
+            <div class="text-preview">${previewHtml}</div>
+            <div class="text-full" style="display:none;">${fullHtml}</div>
+            <button class="read-more-toggle" onclick="(function(el){var p=el.closest('.text-expandable');p.querySelector('.text-preview').style.display=p.querySelector('.text-preview').style.display==='none'?'':'none';p.querySelector('.text-full').style.display=p.querySelector('.text-full').style.display==='none'?'':'none';el.textContent=el.textContent==='Read more'?'Show less':'Read more';})(this)">Read more</button>
+        </div>`;
     }
 
     function updateContextPanel(drug) {
@@ -987,7 +1094,7 @@ const DrugInfoModule = (() => {
         if (b.inactive_ingredients_summary) {
             html += `<div class="brand-detail-row">
                 <span class="detail-label">Key Excipients:</span>
-                <span class="detail-value detail-small">${truncate(b.inactive_ingredients_summary, 300)}</span>
+                <span class="detail-value detail-small">${formatText(b.inactive_ingredients_summary)}</span>
             </div>`;
         }
         html += '</div>';

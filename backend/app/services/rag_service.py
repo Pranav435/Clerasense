@@ -188,6 +188,10 @@ def _build_context(retrieved: list[dict]) -> str:
             block.append(f"Pediatric Dosage: {dg.get('pediatric_dosage', 'N/A')}")
             block.append(f"Renal Adjustment: {dg.get('renal_adjustment', 'N/A')}")
             block.append(f"Hepatic Adjustment: {dg.get('hepatic_adjustment', 'N/A')}")
+            if dg.get('overdose_info'):
+                block.append(f"Overdose Information: {dg['overdose_info']}")
+            if dg.get('underdose_info'):
+                block.append(f"Underdose / Missed Dose: {dg['underdose_info']}")
 
         for sw in drug.get("safety_warnings", []):
             src = sw.get("source", {})

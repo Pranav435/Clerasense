@@ -271,8 +271,19 @@
     margin: 4px 0;
 }
 .cmp-bullets li {
-    margin-bottom: 4px;
+    margin-bottom: 5px;
     font-size: 13px;
+    line-height: 1.55;
+    padding-left: 2px;
+}
+.cmp-cell p {
+    margin: 4px 0;
+    line-height: 1.55;
+}
+
+/* Bullets inside comparison safety/blackbox */
+.cmp-blackbox .cmp-bullets li {
+    color: #991b1b;
 }
 .cmp-blackbox {
     background: #fef2f2;
@@ -1126,6 +1137,70 @@ details[open] > .rx-section-bar::before { content: '▾ '; }
     color: var(--text-secondary);
 }
 
+/* ── Overdose / Underdose Sections ── */
+.druginfo-dose-safety {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+    margin-bottom: 10px;
+}
+
+.druginfo-overdose,
+.druginfo-underdose {
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    border: 1px solid var(--border-light);
+}
+
+.druginfo-overdose {
+    background: rgba(231, 76, 60, 0.06);
+    border-color: rgba(231, 76, 60, 0.25);
+}
+
+.druginfo-underdose {
+    background: rgba(243, 156, 18, 0.06);
+    border-color: rgba(243, 156, 18, 0.25);
+}
+
+.dose-safety-header {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.overdose-header {
+    color: #c0392b;
+}
+
+.underdose-header {
+    color: #d68910;
+}
+
+.dose-safety-body {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.dose-safety-body .druginfo-bullets {
+    padding-left: 16px;
+}
+
+.dose-safety-body .read-more-toggle {
+    font-size: 11px;
+}
+
+@media (max-width: 768px) {
+    .druginfo-dose-safety {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Interactions list */
 .druginfo-interactions-list {
     display: flex;
@@ -1414,6 +1489,88 @@ details[open] > .rx-section-bar::before { content: '▾ '; }
     margin-bottom: 4px;
 }
 
+/* ── Reimbursement Cards (new) ── */
+.reimb-country-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: #f0f9ff;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid #3b82f6;
+}
+
+.reimb-card {
+    border: 1px solid var(--border);
+    border-left: 4px solid #94a3b8;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: var(--bg-primary, #fff);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.reimb-card.reimb-likely   { border-left-color: #22c55e; background: #f0fdf4; }
+.reimb-card.reimb-maybe    { border-left-color: #f59e0b; background: #fffbeb; }
+.reimb-card.reimb-check    { border-left-color: #3b82f6; background: #f0f9ff; }
+.reimb-card.reimb-inpatient { border-left-color: #8b5cf6; background: #f5f3ff; }
+
+.reimb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.reimb-scheme-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.reimb-status-chip {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.reimb-status-chip.reimb-likely   { background: #dcfce7; color: #15803d; }
+.reimb-status-chip.reimb-maybe    { background: #fef3c7; color: #92400e; }
+.reimb-status-chip.reimb-check    { background: #dbeafe; color: #1e40af; }
+.reimb-status-chip.reimb-inpatient { background: #ede9fe; color: #6d28d9; }
+
+.reimb-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0 0 8px;
+}
+
+.reimb-row {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.reimb-label {
+    flex: 0 0 100px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+@media (max-width: 640px) {
+    .reimb-header { flex-direction: column; align-items: flex-start; }
+    .reimb-row { flex-direction: column; gap: 2px; }
+    .reimb-label { flex: none; }
+}
+
 /* ── Disclaimer Banner ── */
 .disclaimer-banner {
     padding: 10px 16px;
@@ -1519,17 +1676,31 @@ details[open] > .rx-section-bar::before { content: '▾ '; }
 /* ── Drug-info bullet lists ── */
 .druginfo-bullets {
     margin: 6px 0 4px 8px;
-    padding-left: 16px;
+    padding-left: 18px;
     list-style-type: disc;
 }
 .druginfo-bullets li {
     font-size: 13px;
-    line-height: 1.55;
-    margin-bottom: 4px;
+    line-height: 1.6;
+    margin-bottom: 5px;
     color: var(--text-secondary);
+    padding-left: 2px;
 }
 .druginfo-blackbox .druginfo-bullets li {
     color: #7f1d1d;
+}
+
+/* Bullets and paragraphs inside mechanism & dosage cells */
+.druginfo-mechanism .druginfo-bullets,
+.dosage-value .druginfo-bullets {
+    margin-top: 6px;
+}
+.druginfo-mechanism p,
+.dosage-value p {
+    margin: 4px 0;
+}
+.druginfo-item p {
+    margin: 4px 0;
 }
 
 /* ── Pricing formulation rows ── */
@@ -1969,4 +2140,34 @@ td.unavailable {
     color: var(--text-muted, #999);
     font-style: italic;
     font-size: 0.88em;
+}
+
+/* ── Read more / expandable text ── */
+.text-expandable {
+    position: relative;
+}
+.read-more-toggle {
+    display: inline-block;
+    background: none;
+    border: none;
+    color: var(--accent, #2563eb);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 0;
+    margin-top: 4px;
+    letter-spacing: 0.2px;
+}
+.read-more-toggle:hover {
+    text-decoration: underline;
+    color: var(--accent-hover, #1d4ed8);
+}
+.cmp-cell .read-more-toggle {
+    font-size: 11px;
+}
+.druginfo-blackbox .read-more-toggle {
+    color: #c0392b;
+}
+.druginfo-blackbox .read-more-toggle:hover {
+    color: #a93226;
 }
