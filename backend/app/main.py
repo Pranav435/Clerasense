@@ -17,6 +17,7 @@ from app.routes.drugs import drugs_bp
 from app.routes.chat import chat_bp
 from app.routes.comparison import comparison_bp
 from app.routes.safety import safety_bp
+from app.routes.prescription import prescription_bp
 from app.routes.pricing import pricing_bp
 from app.routes.auth import auth_bp
 from app.routes.ingestion import ingestion_bp
@@ -58,6 +59,7 @@ def create_app() -> Flask:
     app.register_blueprint(chat_bp, url_prefix="/api/chat")
     app.register_blueprint(comparison_bp, url_prefix="/api/comparison")
     app.register_blueprint(safety_bp, url_prefix="/api/safety")
+    app.register_blueprint(prescription_bp, url_prefix="/api/prescription")
     app.register_blueprint(pricing_bp, url_prefix="/api/pricing")
     app.register_blueprint(ingestion_bp, url_prefix="/api/ingestion")
 

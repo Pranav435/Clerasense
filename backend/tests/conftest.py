@@ -70,7 +70,7 @@ from app.main import create_app
 from app.database import db as _db
 from app.models.models import (
     Doctor, Source, Drug, SafetyWarning, DrugInteraction,
-    Indication, DosageGuideline, Pricing, Reimbursement,
+    Indication, DosageGuideline, Pricing, Reimbursement, BrandProduct,
 )
 
 
@@ -262,4 +262,83 @@ def _seed_test_data():
     _db.session.add(Reimbursement(
         drug_id=1, scheme_name="Medicare Part D",
         coverage_notes="Tier 1 preferred generic.", source_id=1,
+    ))
+
+    # ── Brand Products ──
+    _db.session.add(BrandProduct(
+        id=1, drug_id=1,
+        brand_name="Glucophage",
+        medicine_name="Glucophage 500 mg Tablet, Film Coated",
+        manufacturer="Bristol-Myers Squibb",
+        ndc="0087-6060-05",
+        dosage_form="Tablet, Film Coated",
+        strength="500 mg",
+        route="Oral",
+        is_combination=False,
+        active_ingredients=json.dumps(["METFORMIN HYDROCHLORIDE"]),
+        product_type="HUMAN PRESCRIPTION DRUG",
+        nadac_per_unit=0.02123,
+        nadac_unit="EA",
+        nadac_effective_date="2024-12-04",
+        approximate_cost="$0.0212/EA → ~$0.64–$1.91/month",
+        source_url="https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=test-glucophage",
+        source_authority="FDA",
+        market_country="US",
+    ))
+    _db.session.add(BrandProduct(
+        id=2, drug_id=1,
+        brand_name="Janumet",
+        medicine_name="Janumet 500 mg / 50 mg Tablet, Film Coated",
+        manufacturer="Merck Sharp & Dohme",
+        ndc="0006-0575-61",
+        dosage_form="Tablet, Film Coated",
+        strength="500 mg / 50 mg",
+        route="Oral",
+        is_combination=True,
+        active_ingredients=json.dumps(["METFORMIN HYDROCHLORIDE", "SITAGLIPTIN PHOSPHATE"]),
+        product_type="HUMAN PRESCRIPTION DRUG",
+        nadac_per_unit=3.45,
+        nadac_unit="EA",
+        nadac_effective_date="2024-12-04",
+        approximate_cost="$3.45/EA → ~$103.50–$310.50/month",
+        source_url="https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=test-janumet",
+        source_authority="FDA",
+        market_country="US",
+    ))
+    _db.session.add(BrandProduct(
+        id=3, drug_id=1,
+        brand_name="Metformin Hcl",
+        medicine_name="Metformin Hcl 500 mg Tablet",
+        manufacturer="Teva Pharmaceuticals",
+        ndc="0093-7267-01",
+        dosage_form="Tablet",
+        strength="500 mg",
+        route="Oral",
+        is_combination=False,
+        active_ingredients=json.dumps(["METFORMIN HYDROCHLORIDE"]),
+        product_type="HUMAN PRESCRIPTION DRUG",
+        nadac_per_unit=0.01898,
+        nadac_unit="EA",
+        nadac_effective_date="2024-12-04",
+        approximate_cost="$0.0190/EA → ~$0.57–$1.71/month",
+        source_url="https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=test-teva",
+        source_authority="FDA",
+        market_country="US",
+    ))
+    # Indian market brand
+    _db.session.add(BrandProduct(
+        id=4, drug_id=1,
+        brand_name="Glycomet",
+        medicine_name="Glycomet 500 mg Tablet",
+        manufacturer="USV Limited",
+        ndc="",
+        dosage_form="Tablet",
+        strength="500 mg",
+        route="Oral",
+        is_combination=False,
+        active_ingredients=json.dumps(["METFORMIN HYDROCHLORIDE"]),
+        product_type="",
+        source_url="https://api.fda.gov/drug/event.json?search=patient.drug.medicinalproduct:GLYCOMET+AND+occurcountry:IN",
+        source_authority="FDA FAERS (IN)",
+        market_country="IN",
     ))

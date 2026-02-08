@@ -9,6 +9,8 @@ from flask import Blueprint, request, jsonify
 from app.database import db
 from app.models.models import Drug
 from app.services.drug_lookup_service import lookup_drug, search_drugs as central_search
+from app.services.brand_service import get_brands_for_drug
+from app.services.market_brand_service import get_market_brands_for_drug, get_country_name
 
 drugs_bp = Blueprint("drugs", __name__)
 
@@ -143,3 +145,57 @@ def get_drug_by_name(name):
     if not drug:
         return jsonify({"error": f"Drug '{name}' not found in verified sources."}), 404
     return jsonify({"drug": drug.to_dict(include_details=True)}), 200
+
+
+@drugs_bp.route("/<int:drug_id>/brands", methods=["GET"])
+def get_drug_brands(drug_id):
+    """
+    Return all brand products for a drug.
+    Accepts optional ?country=XX query parameter (ISO 3166-1 alpha-2).
+    Fetches on-demand from verified sources if not yet cached.
+    """
+    drug = db.session.get(Drug, drug_id)
+    if not drug:
+        return jsonify({"error": "Drug not found."}), 404
+
+    country = request.args.get("country", "US").strip().upper()[:5]
+    brands = get_market_brands_for_drug(drug, country)
+
+    return jsonify({
+        "brands": brands,
+        "generic_name": drug.generic_name,
+        "country": country,
+        "country_name": get_country_name(country),
+    }), 200
+
+
+@drugs_bp.route("/<int:drug_id>/brands/compare", methods=["POST"])
+def compare_brands(drug_id):
+    """
+    Compare selected brand products side-by-side.
+    Expects JSON body: { "brand_ids": [1, 2, 3] }
+    """
+    drug = db.session.get(Drug, drug_id)
+    if not drug:
+        return jsonify({"error": "Drug not found."}), 404
+
+    body = request.get_json(silent=True) or {}
+    brand_ids = body.get("brand_ids", [])
+    if len(brand_ids) < 2:
+        return jsonify({"error": "Need at least 2 brands to compare."}), 400
+    if len(brand_ids) > 6:
+        return jsonify({"error": "Maximum 6 brands can be compared at once."}), 400
+
+    from app.models.models import BrandProduct
+    brands = BrandProduct.query.filter(
+        BrandProduct.id.in_(brand_ids),
+        BrandProduct.drug_id == drug_id,
+    ).all()
+
+    if len(brands) < 2:
+        return jsonify({"error": "Not enough valid brands found."}), 404
+
+    return jsonify({
+        "generic_name": drug.generic_name,
+        "brands": [b.to_dict() for b in brands],
+    }), 200

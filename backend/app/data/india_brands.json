@@ -1,0 +1,272 @@
+{
+  "_meta": {
+    "description": "Curated brand-name data for major Indian pharmaceutical market",
+    "sources": [
+      "CDSCO (Central Drugs Standard Control Organisation)",
+      "National Pharmaceutical Pricing Authority (NPPA)",
+      "Indian Pharmacopoeia Commission"
+    ],
+    "last_updated": "2026-02-08",
+    "country_code": "IN"
+  },
+  "albuterol": [
+    {"brand_name": "Asthalin", "manufacturer": "Cipla", "dosage_form": "Inhaler", "strength": "100 mcg", "route": "Inhalation", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Ventolin", "manufacturer": "GlaxoSmithKline", "dosage_form": "Inhaler", "strength": "100 mcg", "route": "Inhalation", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Derihaler", "manufacturer": "Cipla", "dosage_form": "Rotacaps", "strength": "200 mcg", "route": "Inhalation", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Salbair", "manufacturer": "Lupin", "dosage_form": "Inhaler", "strength": "100 mcg", "route": "Inhalation", "product_type": "PRESCRIPTION"}
+  ],
+  "amlodipine": [
+    {"brand_name": "Amlong", "manufacturer": "Micro Labs", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Amlodac", "manufacturer": "Zydus Lifesciences", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Amlopress", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Amlip", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Stamlo", "manufacturer": "Dr. Reddy's", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "amoxicillin": [
+    {"brand_name": "Mox", "manufacturer": "GlaxoSmithKline", "dosage_form": "Capsule", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Novamox", "manufacturer": "Cipla", "dosage_form": "Capsule", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Amoxil", "manufacturer": "GlaxoSmithKline", "dosage_form": "Capsule", "strength": "250 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Augmentin", "manufacturer": "GlaxoSmithKline", "dosage_form": "Tablet", "strength": "625 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Clavam", "manufacturer": "Alkem", "dosage_form": "Tablet", "strength": "625 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"}
+  ],
+  "aspirin": [
+    {"brand_name": "Ecosprin", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "75 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Ecosprin", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "150 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Disprin", "manufacturer": "Reckitt Benckiser", "dosage_form": "Tablet", "strength": "350 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Aspicot", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "75 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Delisprin", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "75 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "atorvastatin": [
+    {"brand_name": "Atorva", "manufacturer": "Zydus Lifesciences", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Storvas", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Lipitor", "manufacturer": "Pfizer", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Atocor", "manufacturer": "Dr. Reddy's", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Tonact", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "azithromycin": [
+    {"brand_name": "Azithral", "manufacturer": "Alembic Pharma", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Azee", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Azicip", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Zithromax", "manufacturer": "Pfizer", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Azilide", "manufacturer": "Micro Labs", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "bupropion": [
+    {"brand_name": "Bupron SR", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "150 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Aplenzin", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "150 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Smoquit", "manufacturer": "Mankind Pharma", "dosage_form": "Tablet", "strength": "150 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "carvedilol": [
+    {"brand_name": "Cardivas", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "6.25 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Carvil", "manufacturer": "Intas Pharma", "dosage_form": "Tablet", "strength": "6.25 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Coreg", "manufacturer": "GSK", "dosage_form": "Tablet", "strength": "6.25 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Carloc", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "3.125 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "celebrex": [
+    {"brand_name": "Celecoxib", "manufacturer": "Pfizer", "dosage_form": "Capsule", "strength": "200 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Zycel", "manufacturer": "Zydus Lifesciences", "dosage_form": "Capsule", "strength": "200 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Colcibra", "manufacturer": "Cipla", "dosage_form": "Capsule", "strength": "200 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Revibra", "manufacturer": "Sun Pharma", "dosage_form": "Capsule", "strength": "200 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "celexa": [
+    {"brand_name": "Citadep", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "C-Pram", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Citalopram", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "clopidogrel": [
+    {"brand_name": "Clopitab", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "75 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Clopilet", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "75 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Deplatt", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "75 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Plavix", "manufacturer": "Sanofi", "dosage_form": "Tablet", "strength": "75 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "doxycycline": [
+    {"brand_name": "Doxt-SL", "manufacturer": "Dr. Reddy's", "dosage_form": "Capsule", "strength": "100 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Doxicip", "manufacturer": "Cipla", "dosage_form": "Capsule", "strength": "100 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Biodoxi", "manufacturer": "Biochem", "dosage_form": "Capsule", "strength": "100 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Doxy-1", "manufacturer": "Alkem", "dosage_form": "Capsule", "strength": "100 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "duloxetine": [
+    {"brand_name": "Duzela", "manufacturer": "Sun Pharma", "dosage_form": "Capsule", "strength": "30 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Dulotin", "manufacturer": "Intas Pharma", "dosage_form": "Capsule", "strength": "30 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Dulane", "manufacturer": "Sun Pharma", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Cymbalta", "manufacturer": "Eli Lilly", "dosage_form": "Capsule", "strength": "30 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "escitalopram": [
+    {"brand_name": "Nexito", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Stalopam", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Citopam", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "S Cetam", "manufacturer": "Intas Pharma", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Rezolve", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "ethanol": [],
+  "ethinylestradiol": [
+    {"brand_name": "Novelon", "manufacturer": "Organon", "dosage_form": "Tablet", "strength": "0.03 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Femilon", "manufacturer": "Organon", "dosage_form": "Tablet", "strength": "0.02 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Yasmin", "manufacturer": "Bayer Zydus", "dosage_form": "Tablet", "strength": "0.03 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Ovral-L", "manufacturer": "Pfizer", "dosage_form": "Tablet", "strength": "0.03 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"}
+  ],
+  "fluoxetine": [
+    {"brand_name": "Fludac", "manufacturer": "Cadila Pharma", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Flunil", "manufacturer": "Intas Pharma", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Fluox", "manufacturer": "Cipla", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Prodep", "manufacturer": "Sun Pharma", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "furosemide": [
+    {"brand_name": "Lasix", "manufacturer": "Sanofi", "dosage_form": "Tablet", "strength": "40 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Fruselac", "manufacturer": "Cadila Pharma", "dosage_form": "Tablet", "strength": "40 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Furoped", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "40 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "gabapentin": [
+    {"brand_name": "Gabapin", "manufacturer": "Intas Pharma", "dosage_form": "Capsule", "strength": "300 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Gabantin", "manufacturer": "Sun Pharma", "dosage_form": "Capsule", "strength": "300 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Gabator", "manufacturer": "Torrent Pharma", "dosage_form": "Capsule", "strength": "300 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Neurontin", "manufacturer": "Pfizer", "dosage_form": "Capsule", "strength": "300 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "hydrochlorothiazide": [
+    {"brand_name": "Aquazide", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "12.5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Hydrazide", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "12.5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Esidrex", "manufacturer": "Novartis", "dosage_form": "Tablet", "strength": "12.5 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "ibuprofen": [
+    {"brand_name": "Brufen", "manufacturer": "Abbott", "dosage_form": "Tablet", "strength": "400 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Ibugesic", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "400 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Combiflam", "manufacturer": "Sanofi", "dosage_form": "Tablet", "strength": "400 mg", "route": "Oral", "is_combination": true, "product_type": "OTC"},
+    {"brand_name": "Brufen", "manufacturer": "Abbott", "dosage_form": "Suspension", "strength": "100 mg/5 ml", "route": "Oral", "product_type": "OTC"}
+  ],
+  "levocetirizine": [
+    {"brand_name": "Levocet", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Xyzal", "manufacturer": "Sanofi", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Vozet", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "LCZ", "manufacturer": "Alkem", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "OTC"}
+  ],
+  "levothyroxine": [
+    {"brand_name": "Thyronorm", "manufacturer": "Abbott", "dosage_form": "Tablet", "strength": "50 mcg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Eltroxin", "manufacturer": "GlaxoSmithKline", "dosage_form": "Tablet", "strength": "50 mcg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Thyrox", "manufacturer": "Macleods Pharma", "dosage_form": "Tablet", "strength": "50 mcg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Lethyrox", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "25 mcg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "lisinopril": [
+    {"brand_name": "Listril", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Lipril", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Zestril", "manufacturer": "AstraZeneca", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Lisinovas", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "losartan": [
+    {"brand_name": "Losar", "manufacturer": "Unichem Labs", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Repace", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Losacar", "manufacturer": "Cadila Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Cozaar", "manufacturer": "MSD", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Losanorm", "manufacturer": "Ipca Labs", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "meloxicam": [
+    {"brand_name": "Muvera", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "7.5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Melonex", "manufacturer": "Micro Labs", "dosage_form": "Tablet", "strength": "7.5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Flexilor", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "15 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Mobic", "manufacturer": "Boehringer Ingelheim", "dosage_form": "Tablet", "strength": "7.5 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "metformin": [
+    {"brand_name": "Glycomet", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Gluconorm", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Obimet", "manufacturer": "Zydus Lifesciences", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Glyciphage", "manufacturer": "Franco-Indian Pharma", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Walaphage", "manufacturer": "Wallace Pharma", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "metoprolol": [
+    {"brand_name": "Betaloc", "manufacturer": "AstraZeneca", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Met XL", "manufacturer": "Intas Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Metolar", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Seloken XL", "manufacturer": "AstraZeneca", "dosage_form": "Tablet", "strength": "25 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "metronidazole": [
+    {"brand_name": "Flagyl", "manufacturer": "Abbott", "dosage_form": "Tablet", "strength": "400 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Metrogyl", "manufacturer": "J.B. Chemicals", "dosage_form": "Tablet", "strength": "400 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Metron", "manufacturer": "Alkem", "dosage_form": "Tablet", "strength": "400 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Aristogyl", "manufacturer": "Aristo Pharma", "dosage_form": "Infusion", "strength": "500 mg/100 ml", "route": "Intravenous", "product_type": "PRESCRIPTION"}
+  ],
+  "montelukast": [
+    {"brand_name": "Montair", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Montek LC", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Romilast", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Telekast-L", "manufacturer": "Mankind Pharma", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Singulair", "manufacturer": "MSD", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "nicotin": [
+    {"brand_name": "Nicotex", "manufacturer": "Cipla", "dosage_form": "Gum", "strength": "2 mg", "route": "Buccal", "product_type": "OTC"},
+    {"brand_name": "Nicotex", "manufacturer": "Cipla", "dosage_form": "Patch", "strength": "7 mg/24 hr", "route": "Transdermal", "product_type": "OTC"},
+    {"brand_name": "2baconil", "manufacturer": "Rusan Pharma", "dosage_form": "Patch", "strength": "14 mg", "route": "Transdermal", "product_type": "OTC"}
+  ],
+  "omeprazole": [
+    {"brand_name": "Omez", "manufacturer": "Dr. Reddy's", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Ocid", "manufacturer": "Zydus Lifesciences", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Omesec", "manufacturer": "Cipla", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Prilosec", "manufacturer": "AstraZeneca", "dosage_form": "Capsule", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "pantoprazole": [
+    {"brand_name": "Pan-D", "manufacturer": "Alkem", "dosage_form": "Capsule", "strength": "40 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Pantocid", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "40 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Pantop", "manufacturer": "Aristo Pharma", "dosage_form": "Tablet", "strength": "40 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Pan 40", "manufacturer": "Alkem", "dosage_form": "Tablet", "strength": "40 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Nupenta", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "40 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "paracetamol": [
+    {"brand_name": "Dolo 650", "manufacturer": "Micro Labs", "dosage_form": "Tablet", "strength": "650 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Crocin", "manufacturer": "GSK/Haleon", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Calpol", "manufacturer": "GlaxoSmithKline", "dosage_form": "Suspension", "strength": "250 mg/5 ml", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Pacimol", "manufacturer": "Ipca Labs", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "OTC"},
+    {"brand_name": "Metacin", "manufacturer": "ICPA Health Products", "dosage_form": "Tablet", "strength": "500 mg", "route": "Oral", "product_type": "OTC"}
+  ],
+  "pravastatin": [
+    {"brand_name": "Pravator", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Pravachol", "manufacturer": "Bristol-Myers Squibb", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Pravastat", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "prednisone": [
+    {"brand_name": "Omnacortil", "manufacturer": "Macleods Pharma", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Wysolone", "manufacturer": "Pfizer", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Predone", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "rosuvastatin": [
+    {"brand_name": "Rosulip", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Rozavel", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Rosuvas", "manufacturer": "Ranbaxy/Sun Pharma", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Crestor", "manufacturer": "AstraZeneca", "dosage_form": "Tablet", "strength": "10 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Novastat", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "sertraline": [
+    {"brand_name": "Daxid", "manufacturer": "Pfizer", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Serta", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Serenace", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Serlift", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "simvastatin": [
+    {"brand_name": "Simvotin", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Zocor", "manufacturer": "MSD", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Simvas", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "20 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "spironolactone": [
+    {"brand_name": "Aldactone", "manufacturer": "RPG Life Sciences", "dosage_form": "Tablet", "strength": "25 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Spiromide", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "is_combination": true, "product_type": "PRESCRIPTION"},
+    {"brand_name": "Lactone", "manufacturer": "Cadila Pharma", "dosage_form": "Tablet", "strength": "25 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "tamsulosin": [
+    {"brand_name": "Urimax", "manufacturer": "Cipla", "dosage_form": "Capsule", "strength": "0.4 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Contiflo", "manufacturer": "Sun Pharma", "dosage_form": "Capsule", "strength": "0.4 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Veltam", "manufacturer": "Intas Pharma", "dosage_form": "Tablet", "strength": "0.4 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Flomax", "manufacturer": "Boehringer Ingelheim", "dosage_form": "Capsule", "strength": "0.4 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "trazodone": [
+    {"brand_name": "Trazalon", "manufacturer": "Sun Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Trazonil", "manufacturer": "Intas Pharma", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Trazodac", "manufacturer": "Zydus Lifesciences", "dosage_form": "Tablet", "strength": "50 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "valsartan": [
+    {"brand_name": "Valzaar", "manufacturer": "Torrent Pharma", "dosage_form": "Tablet", "strength": "80 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Diovan", "manufacturer": "Novartis", "dosage_form": "Tablet", "strength": "80 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Valent", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "80 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Starval", "manufacturer": "Lupin", "dosage_form": "Tablet", "strength": "80 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ],
+  "warfarin": [
+    {"brand_name": "Warf", "manufacturer": "Cipla", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Coumadin", "manufacturer": "Bristol-Myers Squibb", "dosage_form": "Tablet", "strength": "5 mg", "route": "Oral", "product_type": "PRESCRIPTION"},
+    {"brand_name": "Warfarin Sod", "manufacturer": "USV", "dosage_form": "Tablet", "strength": "2 mg", "route": "Oral", "product_type": "PRESCRIPTION"}
+  ]
+}

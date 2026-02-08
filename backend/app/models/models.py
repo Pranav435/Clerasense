@@ -50,6 +50,7 @@ class Drug(db.Model):
     interactions = db.relationship("DrugInteraction", backref="drug", lazy="joined", cascade="all, delete-orphan")
     pricing = db.relationship("Pricing", backref="drug", lazy="joined", cascade="all, delete-orphan")
     reimbursements = db.relationship("Reimbursement", backref="drug", lazy="joined", cascade="all, delete-orphan")
+    brand_products = db.relationship("BrandProduct", backref="drug", lazy="dynamic", cascade="all, delete-orphan")
 
     def to_dict(self, include_details=False):
         data = {
@@ -282,3 +283,61 @@ class IngestionLog(db.Model):
     conflicts = db.Column(db.Text)
     details = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class BrandProduct(db.Model):
+    """Individual branded/manufactured products for a generic drug."""
+    __tablename__ = "brand_products"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    drug_id = db.Column(db.Integer, db.ForeignKey("drugs.id", ondelete="CASCADE"), nullable=False)
+    brand_name = db.Column(db.String(300), nullable=False)
+    medicine_name = db.Column(db.String(500))               # full prescribable name
+    manufacturer = db.Column(db.String(400))
+    ndc = db.Column(db.String(50))                         # National Drug Code
+    dosage_form = db.Column(db.String(200))                # tablet, capsule, injection …
+    strength = db.Column(db.String(200))                   # e.g. "500 mg"
+    route = db.Column(db.String(100))                      # oral, intravenous …
+    is_combination = db.Column(db.Boolean, default=False)  # pure drug vs combo
+    active_ingredients = db.Column(db.Text)                 # JSON list
+    inactive_ingredients_summary = db.Column(db.Text)       # key excipients
+    product_type = db.Column(db.String(100))                # PRESCRIPTION, OTC
+    nadac_per_unit = db.Column(db.Float)                    # NADAC price / unit USD
+    nadac_unit = db.Column(db.String(20))                   # EA, ML, GM
+    nadac_effective_date = db.Column(db.String(20))
+    approximate_cost = db.Column(db.Text)                   # human-readable cost
+    source_url = db.Column(db.Text)
+    source_authority = db.Column(db.String(100))
+    market_country = db.Column(db.String(5), default="US", nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        import json
+        active = []
+        if self.active_ingredients:
+            try:
+                active = json.loads(self.active_ingredients)
+            except (json.JSONDecodeError, TypeError):
+                active = [self.active_ingredients]
+        return {
+            "id": self.id,
+            "drug_id": self.drug_id,
+            "brand_name": self.brand_name,
+            "medicine_name": self.medicine_name,
+            "manufacturer": self.manufacturer,
+            "ndc": self.ndc,
+            "dosage_form": self.dosage_form,
+            "strength": self.strength,
+            "route": self.route,
+            "is_combination": self.is_combination,
+            "active_ingredients": active,
+            "inactive_ingredients_summary": self.inactive_ingredients_summary,
+            "product_type": self.product_type,
+            "nadac_per_unit": self.nadac_per_unit,
+            "nadac_unit": self.nadac_unit,
+            "nadac_effective_date": self.nadac_effective_date,
+            "approximate_cost": self.approximate_cost,
+            "source_url": self.source_url,
+            "source_authority": self.source_authority,
+            "market_country": self.market_country,
+        }

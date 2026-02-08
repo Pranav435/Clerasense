@@ -153,3 +153,31 @@ CREATE TABLE IF NOT EXISTS ingestion_log (
 CREATE INDEX idx_ingestion_drug ON ingestion_log(drug_name);
 CREATE INDEX idx_ingestion_status ON ingestion_log(status);
 CREATE INDEX idx_ingestion_created ON ingestion_log(created_at);
+
+-- Brand-level product data (one row per branded / manufactured formulation)
+CREATE TABLE IF NOT EXISTS brand_products (
+    id                  SERIAL PRIMARY KEY,
+    drug_id             INT NOT NULL REFERENCES drugs(id) ON DELETE CASCADE,
+    brand_name          VARCHAR(300) NOT NULL,
+    medicine_name       VARCHAR(500),
+    manufacturer        VARCHAR(400),
+    ndc                 VARCHAR(50),
+    dosage_form         VARCHAR(200),
+    strength            VARCHAR(200),
+    route               VARCHAR(100),
+    is_combination      BOOLEAN DEFAULT FALSE,
+    active_ingredients  TEXT,
+    inactive_ingredients_summary TEXT,
+    product_type        VARCHAR(100),
+    nadac_per_unit      FLOAT,
+    nadac_unit          VARCHAR(20),
+    nadac_effective_date VARCHAR(20),
+    approximate_cost    TEXT,
+    source_url          TEXT,
+    source_authority    VARCHAR(100),
+    market_country      VARCHAR(5) DEFAULT 'US' NOT NULL,
+    created_at          TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_brand_products_drug ON brand_products(drug_id);
+CREATE INDEX idx_brand_products_name ON brand_products(brand_name);
+CREATE INDEX idx_brand_products_country ON brand_products(market_country);

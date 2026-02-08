@@ -1,6 +1,6 @@
 """
 API endpoint tests – verifies all REST endpoints return correct structure.
-Covers auth, drug CRUD, comparisons, safety (incl. FAERS), and pricing (incl. NADAC).
+Covers auth, drug CRUD, comparisons, safety (incl. FAERS), prescription verification, and pricing (incl. NADAC).
 """
 
 
@@ -254,6 +254,202 @@ class TestSafetyEndpoint:
 
 
 # ════════════════════════════════════════════
+# PRESCRIPTION VERIFICATION
+# ════════════════════════════════════════════
+
+class TestPrescriptionEndpoint:
+    """Tests for the /api/prescription/verify endpoint."""
+
+    def test_prescription_verify_empty_text(self, client, auth_headers):
+        """Empty OCR text returns 400."""
+        resp = client.post("/api/prescription/verify", headers=auth_headers, json={
+            "ocr_text": ""
+        })
+        assert resp.status_code == 400
+
+    def test_prescription_verify_missing_body(self, client, auth_headers):
+        """Missing ocr_text field returns 400."""
+        resp = client.post("/api/prescription/verify", headers=auth_headers, json={})
+        assert resp.status_code == 400
+
+    def test_prescription_verify_too_long(self, client, auth_headers):
+        """Excessively long text returns 400."""
+        resp = client.post("/api/prescription/verify", headers=auth_headers, json={
+            "ocr_text": "x" * 20000
+        })
+        assert resp.status_code == 400
+
+    def test_prescription_verify_no_auth(self, client):
+        """Prescription endpoint requires authentication."""
+        resp = client.post("/api/prescription/verify", json={
+            "ocr_text": "Metformin 500mg twice daily"
+        })
+        assert resp.status_code == 401
+
+    def test_prescription_verify_success(self, client, auth_headers, monkeypatch):
+        """Successful verification returns expected structure (mocked AI)."""
+        # Mock the AI calls in prescription_service
+        import app.services.prescription_service as ps
+
+        mock_extracted = {
+            "medications": [
+                {"drug_name": "Metformin", "dosage": "500mg", "frequency": "twice daily",
+                 "route": "oral", "duration": "30 days", "quantity": "60"}
+            ],
+            "patient_info": {"name": "Test Patient", "age": "55", "gender": "Male", "weight": None},
+            "diagnosis": "Type 2 Diabetes",
+            "prescriber": "Dr. Smith",
+            "date": "2025-01-01",
+            "additional_instructions": "Take with food"
+        }
+
+        mock_ai_analysis = {
+            "overall_assessment": "VERIFIED",
+            "assessment_summary": "Prescription appears appropriate for Type 2 Diabetes.",
+            "medication_analysis": [
+                {
+                    "drug_name": "Metformin",
+                    "found_in_database": True,
+                    "drug_class": "Biguanide",
+                    "prescribed_dosage": "500mg twice daily",
+                    "standard_dosage_info": "500-2000mg daily",
+                    "dosage_assessment": "appropriate",
+                    "indication_match": "appropriate for stated diagnosis",
+                    "indication_details": "Metformin is first-line for Type 2 Diabetes.",
+                    "key_warnings": ["Lactic acidosis risk"],
+                    "required_monitoring": ["Renal function (eGFR)", "B12 levels annually"],
+                    "dosage_instructions": "Take 500mg twice daily with meals.",
+                    "special_populations": "Contraindicated with eGFR <30"
+                }
+            ],
+            "interaction_alerts": [],
+            "warnings_summary": ["Monitor renal function before and during treatment"],
+            "required_scans_and_tests": [
+                {"test_name": "eGFR", "reason": "Assess renal function", "timing": "Before starting", "related_drug": "Metformin"}
+            ],
+            "missing_information": [],
+            "recommendations": ["Monitor HbA1c every 3 months"]
+        }
+
+        monkeypatch.setattr(ps, "extract_prescription_data", lambda text: mock_extracted)
+        monkeypatch.setattr(ps, "_run_ai_verification", lambda *a: mock_ai_analysis)
+
+        resp = client.post("/api/prescription/verify", headers=auth_headers, json={
+            "ocr_text": "Patient: Test Patient, Age 55, Male\nDr. Smith\nDate: 2025-01-01\nDx: Type 2 Diabetes\nRx: Metformin 500mg BID x30days #60\nSig: Take with food"
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        # Check top-level structure
+        assert "extracted_data" in data
+        assert "drugs_found" in data
+        assert "drugs_not_found" in data
+        assert "safety_warnings" in data
+        assert "interaction_alerts" in data
+        assert "dosage_guidelines" in data
+        assert "ai_analysis" in data
+        assert "disclaimer" in data
+
+        # Metformin should be found
+        assert "Metformin" in data["drugs_found"]
+
+        # AI analysis structure
+        ai = data["ai_analysis"]
+        assert ai["overall_assessment"] == "VERIFIED"
+        assert len(ai["medication_analysis"]) == 1
+        assert ai["medication_analysis"][0]["drug_name"] == "Metformin"
+
+    def test_prescription_verify_with_interactions(self, client, auth_headers, monkeypatch):
+        """Prescription with interacting drugs surfaces DB interaction alerts."""
+        import app.services.prescription_service as ps
+
+        mock_extracted = {
+            "medications": [
+                {"drug_name": "Metformin", "dosage": "500mg", "frequency": "BID",
+                 "route": "oral", "duration": None, "quantity": None},
+                {"drug_name": "Lisinopril", "dosage": "10mg", "frequency": "daily",
+                 "route": "oral", "duration": None, "quantity": None},
+            ],
+            "patient_info": {"name": None, "age": None, "gender": None, "weight": None},
+            "diagnosis": "HTN + T2DM",
+            "prescriber": None,
+            "date": None,
+            "additional_instructions": None,
+        }
+
+        mock_ai = {
+            "overall_assessment": "VERIFIED WITH CONCERNS",
+            "assessment_summary": "Both drugs found. Interaction noted.",
+            "medication_analysis": [],
+            "interaction_alerts": [],
+            "warnings_summary": [],
+            "required_scans_and_tests": [],
+            "missing_information": [],
+            "recommendations": [],
+        }
+
+        monkeypatch.setattr(ps, "extract_prescription_data", lambda text: mock_extracted)
+        monkeypatch.setattr(ps, "_run_ai_verification", lambda *a: mock_ai)
+
+        resp = client.post("/api/prescription/verify", headers=auth_headers, json={
+            "ocr_text": "Metformin 500mg BID, Lisinopril 10mg daily"
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        # Both drugs found
+        assert "Metformin" in data["drugs_found"]
+        assert "Lisinopril" in data["drugs_found"]
+
+        # DB interaction alerts should be surfaced
+        assert len(data["interaction_alerts"]) >= 1
+
+        # Safety warnings from DB
+        assert len(data["safety_warnings"]) >= 1
+
+    def test_prescription_verify_unknown_drug(self, client, auth_headers, monkeypatch):
+        """Unknown drug in prescription appears in drugs_not_found."""
+        import app.services.prescription_service as ps
+
+        mock_extracted = {
+            "medications": [
+                {"drug_name": "Metformin", "dosage": "500mg", "frequency": "BID",
+                 "route": "oral", "duration": None, "quantity": None},
+                {"drug_name": "FakeDrugXYZ", "dosage": "100mg", "frequency": "daily",
+                 "route": "oral", "duration": None, "quantity": None},
+            ],
+            "patient_info": {"name": None, "age": None, "gender": None, "weight": None},
+            "diagnosis": None,
+            "prescriber": None,
+            "date": None,
+            "additional_instructions": None,
+        }
+
+        mock_ai = {
+            "overall_assessment": "REQUIRES REVIEW",
+            "assessment_summary": "One drug not found in database.",
+            "medication_analysis": [],
+            "interaction_alerts": [],
+            "warnings_summary": [],
+            "required_scans_and_tests": [],
+            "missing_information": [],
+            "recommendations": [],
+        }
+
+        monkeypatch.setattr(ps, "extract_prescription_data", lambda text: mock_extracted)
+        monkeypatch.setattr(ps, "_run_ai_verification", lambda *a: mock_ai)
+
+        resp = client.post("/api/prescription/verify", headers=auth_headers, json={
+            "ocr_text": "Metformin 500mg BID, FakeDrugXYZ 100mg daily"
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        assert "Metformin" in data["drugs_found"]
+        assert "FakeDrugXYZ" in data["drugs_not_found"]
+
+
+# ════════════════════════════════════════════
 # PRICING (including NADAC data)
 # ════════════════════════════════════════════
 
@@ -298,3 +494,198 @@ class TestPricingEndpoint:
         reimb = resp.get_json()["reimbursement"]
         assert len(reimb) >= 1
         assert reimb[0]["scheme_name"] == "Medicare Part D"
+
+
+# ════════════════════════════════════════════
+# BRAND PRODUCTS
+# ════════════════════════════════════════════
+
+class TestBrandEndpoints:
+    """Tests for the /drugs/<id>/brands endpoints."""
+
+    def test_get_drug_brands(self, client, auth_headers):
+        """GET brands for Metformin returns seeded US brand products."""
+        resp = client.get("/api/drugs/1/brands", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "brands" in data
+        assert data["generic_name"] == "Metformin"
+        assert data["country"] == "US"
+        assert len(data["brands"]) == 3
+
+    def test_brand_product_structure(self, client, auth_headers):
+        """Each brand product dict contains all required fields."""
+        resp = client.get("/api/drugs/1/brands", headers=auth_headers)
+        brands = resp.get_json()["brands"]
+        required_fields = [
+            "id", "brand_name", "medicine_name", "manufacturer", "dosage_form",
+            "strength", "route", "is_combination", "active_ingredients",
+            "product_type", "source_url", "source_authority", "market_country",
+        ]
+        for brand in brands:
+            for field in required_fields:
+                assert field in brand, f"Missing field: {field}"
+
+    def test_brand_medicine_name(self, client, auth_headers):
+        """Medicine name is the full prescribable name (brand + strength + form)."""
+        resp = client.get("/api/drugs/1/brands", headers=auth_headers)
+        brands = resp.get_json()["brands"]
+        brand_map = {b["brand_name"]: b for b in brands}
+        # Glucophage medicine name should include strength and dosage form
+        glucophage = brand_map["Glucophage"]
+        assert "Glucophage" in glucophage["medicine_name"]
+        assert "500 mg" in glucophage["medicine_name"]
+        # Janumet medicine name should reflect combo
+        janumet = brand_map["Janumet"]
+        assert "Janumet" in janumet["medicine_name"]
+
+    def test_brand_pure_vs_combination(self, client, auth_headers):
+        """Verify pure and combination brands are correctly tagged."""
+        resp = client.get("/api/drugs/1/brands", headers=auth_headers)
+        brands = resp.get_json()["brands"]
+        brand_map = {b["brand_name"]: b for b in brands}
+
+        # Glucophage = pure metformin
+        assert brand_map["Glucophage"]["is_combination"] is False
+        assert len(brand_map["Glucophage"]["active_ingredients"]) == 1
+
+        # Janumet = combination (metformin + sitagliptin)
+        assert brand_map["Janumet"]["is_combination"] is True
+        assert len(brand_map["Janumet"]["active_ingredients"]) == 2
+
+    def test_brand_pricing_fields(self, client, auth_headers):
+        """Brand products include NADAC pricing data."""
+        resp = client.get("/api/drugs/1/brands", headers=auth_headers)
+        brands = resp.get_json()["brands"]
+        brand_map = {b["brand_name"]: b for b in brands}
+        glucophage = brand_map["Glucophage"]
+        assert glucophage["nadac_per_unit"] is not None
+        assert glucophage["nadac_per_unit"] > 0
+        assert glucophage["ndc"] is not None
+        assert glucophage["approximate_cost"] is not None
+
+    def test_brand_source_authority(self, client, auth_headers):
+        """Brand products have verified source information."""
+        resp = client.get("/api/drugs/1/brands", headers=auth_headers)
+        brands = resp.get_json()["brands"]
+        for b in brands:
+            assert b["source_authority"] == "FDA"
+            assert b["source_url"] is not None
+            assert b["source_url"].startswith("https://")
+
+    def test_brands_not_found_drug(self, client, auth_headers):
+        """Non-existent drug returns 404."""
+        resp = client.get("/api/drugs/9999/brands", headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_brands_no_auth(self, client):
+        """Brands endpoint requires authentication."""
+        resp = client.get("/api/drugs/1/brands")
+        assert resp.status_code == 401
+
+    # ── Country-filtered brands ──
+
+    def test_brands_country_us_explicit(self, client, auth_headers):
+        """Explicitly passing ?country=US returns only US brands."""
+        resp = client.get("/api/drugs/1/brands?country=US", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["country"] == "US"
+        assert data["country_name"] == "United States"
+        assert len(data["brands"]) == 3
+        for b in data["brands"]:
+            assert b["market_country"] == "US"
+
+    def test_brands_country_india(self, client, auth_headers):
+        """Passing ?country=IN returns Indian market brands."""
+        resp = client.get("/api/drugs/1/brands?country=IN", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["country"] == "IN"
+        assert data["country_name"] == "India"
+        assert len(data["brands"]) >= 1
+        for b in data["brands"]:
+            assert b["market_country"] == "IN"
+
+    def test_brands_india_glycomet(self, client, auth_headers):
+        """Seeded Indian brand Glycomet appears correctly."""
+        resp = client.get("/api/drugs/1/brands?country=IN", headers=auth_headers)
+        brands = resp.get_json()["brands"]
+        brand_map = {b["brand_name"]: b for b in brands}
+        assert "Glycomet" in brand_map
+        g = brand_map["Glycomet"]
+        assert g["manufacturer"] == "USV Limited"
+        assert g["market_country"] == "IN"
+        assert "FAERS" in g["source_authority"]
+
+    def test_brands_country_empty_market(self, client, auth_headers):
+        """Country with no seeded brands returns empty list (no crash)."""
+        resp = client.get("/api/drugs/1/brands?country=ZZ", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["country"] == "ZZ"
+        assert isinstance(data["brands"], list)
+
+    def test_brands_response_has_country_fields(self, client, auth_headers):
+        """Response envelope includes country and country_name."""
+        resp = client.get("/api/drugs/1/brands?country=IN", headers=auth_headers)
+        data = resp.get_json()
+        assert "country" in data
+        assert "country_name" in data
+
+    # ── Compare brands ──
+
+    def test_compare_brands_success(self, client, auth_headers):
+        """Compare two brands returns structured comparison."""
+        resp = client.post("/api/drugs/1/brands/compare",
+                           headers=auth_headers,
+                           json={"brand_ids": [1, 2]})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["generic_name"] == "Metformin"
+        assert len(data["brands"]) == 2
+        names = {b["brand_name"] for b in data["brands"]}
+        assert "Glucophage" in names
+        assert "Janumet" in names
+
+    def test_compare_brands_three(self, client, auth_headers):
+        """Compare three brands works."""
+        resp = client.post("/api/drugs/1/brands/compare",
+                           headers=auth_headers,
+                           json={"brand_ids": [1, 2, 3]})
+        assert resp.status_code == 200
+        assert len(resp.get_json()["brands"]) == 3
+
+    def test_compare_brands_too_few(self, client, auth_headers):
+        """Comparing fewer than 2 brands returns 400."""
+        resp = client.post("/api/drugs/1/brands/compare",
+                           headers=auth_headers,
+                           json={"brand_ids": [1]})
+        assert resp.status_code == 400
+
+    def test_compare_brands_too_many(self, client, auth_headers):
+        """Comparing more than 6 brands returns 400."""
+        resp = client.post("/api/drugs/1/brands/compare",
+                           headers=auth_headers,
+                           json={"brand_ids": [1, 2, 3, 4, 5, 6, 7]})
+        assert resp.status_code == 400
+
+    def test_compare_brands_drug_not_found(self, client, auth_headers):
+        """Comparing brands for non-existent drug returns 404."""
+        resp = client.post("/api/drugs/9999/brands/compare",
+                           headers=auth_headers,
+                           json={"brand_ids": [1, 2]})
+        assert resp.status_code == 404
+
+    def test_compare_brands_invalid_ids(self, client, auth_headers):
+        """Brand IDs that don't belong to the drug return 404."""
+        resp = client.post("/api/drugs/1/brands/compare",
+                           headers=auth_headers,
+                           json={"brand_ids": [999, 998]})
+        assert resp.status_code == 404
+
+    def test_compare_brands_no_auth(self, client):
+        """Compare endpoint requires authentication."""
+        resp = client.post("/api/drugs/1/brands/compare",
+                           json={"brand_ids": [1, 2]})
+        assert resp.status_code == 401

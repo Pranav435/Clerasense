@@ -12,6 +12,25 @@ const DrugInfoModule = (() => {
         return Currency.format(usd, decimals);
     }
 
+    /**
+     * Parse an approximate_cost string like "₹50.55 strip of 10 tablet ir"
+     * or "₹50.55 (strip of 10 tablets)" to extract pack price and pack count.
+     * Returns { price: number, count: number, currency: '₹'|'$', label: string } or null.
+     */
+    function _parsePackPrice(approxCost) {
+        if (!approxCost) return null;
+        // Match currency + price
+        const m = approxCost.match(/([₹$])\s*(\d+(?:\.\d+)?)/);
+        if (!m) return null;
+        const currency = m[1];
+        const price = parseFloat(m[2]);
+        if (isNaN(price) || price <= 0) return null;
+        // Try to extract pack count: "strip of 10", "pack of 15", "bottle of 100"
+        const cm = approxCost.match(/(?:strip|pack|bottle|box|vial|tube|sachet|bag)\s*(?:of\s+)?(\d+)/i);
+        const count = cm ? parseInt(cm[1], 10) : 0;
+        return { price, count: count > 0 ? count : 1, currency, label: approxCost };
+    }
+
     function render(container) {
         container.innerHTML = `
             <div class="druginfo-container">
@@ -203,6 +222,9 @@ const DrugInfoModule = (() => {
 
         renderDrugProfile(drug, pricingData, resultsEl);
         updateContextPanel(drug);
+
+        // Load brands asynchronously (after main profile renders)
+        loadBrandsPanel(drug);
     }
 
     /* ── Source badge (reusable) ── */
@@ -359,6 +381,12 @@ const DrugInfoModule = (() => {
 
         // ── Pricing & Reimbursement ──
         html += renderPricingSection(pricing);
+
+        // ── Brands Panel (placeholder – loaded asynchronously) ──
+        html += `<div id="brands-section-card" class="druginfo-card">
+            <h3 class="druginfo-section-title">🏭 Brand Products</h3>
+            <div id="brands-loading" class="loading" style="font-size:13px;">Loading brand product data from FDA &amp; NADAC…</div>
+        </div>`;
 
         container.innerHTML = html;
 
@@ -624,6 +652,577 @@ const DrugInfoModule = (() => {
                 ${s.url ? `<a href="${s.url}" target="_blank" rel="noopener" class="source-link">View source ↗</a>` : ''}
             </div>
         `).join('');
+    }
+
+    /* ── Brands Panel ── */
+
+    let _brandsData = [];   // cached brand list for the current drug
+    let _currentDrugId = null;
+
+    async function loadBrandsPanel(drug) {
+        _currentDrugId = drug.id;
+        const card = document.getElementById('brands-section-card');
+        if (!card) return;
+
+        const userCountry = App.getUserCountry();
+        const userCountryName = App.getUserCountryName();
+        const isUS = (userCountry === 'US');
+
+        try {
+            let localBrands = [], usBrands = [];
+
+            if (isUS) {
+                // US user → single fetch
+                const res = await API.getDrugBrands(drug.id, 'US');
+                usBrands = (res && res.brands) || [];
+            } else {
+                // Non-US user → parallel fetch: local market + US
+                const [localRes, usRes] = await Promise.all([
+                    API.getDrugBrands(drug.id, userCountry),
+                    API.getDrugBrands(drug.id, 'US'),
+                ]);
+                localBrands = (localRes && localRes.brands) || [];
+                usBrands = (usRes && usRes.brands) || [];
+            }
+
+            // Group brands by name to consolidate dosages
+            localBrands = _groupBrands(localBrands);
+            usBrands = _groupBrands(usBrands);
+
+            // Unified flat array (local brands first, then US) — indices stay unique
+            _brandsData = [...localBrands, ...usBrands];
+
+            if (!_brandsData.length) {
+                card.innerHTML = `
+                    <h3 class="druginfo-section-title">🏭 Brand Products</h3>
+                    <p style="color:var(--text-muted);font-size:13px;">No brand-level product data available.</p>`;
+                return;
+            }
+
+            let html = `
+                <div class="brands-header-row">
+                    <h3 class="druginfo-section-title" style="margin-bottom:0;">🏭 Brand Products</h3>
+                    <button id="compare-brands-btn" class="btn btn-small btn-outline" disabled>
+                        ⚖️ Compare Selected
+                    </button>
+                </div>`;
+
+            // ── Tabs (only for non-US users with local brands) ──
+            if (!isUS && localBrands.length) {
+                html += `
+                <div class="brand-market-tabs">
+                    <button class="brand-tab active" data-tab="local">
+                        🌍 ${userCountryName} <span class="brand-tab-count">${localBrands.length}</span>
+                    </button>
+                    <button class="brand-tab" data-tab="us">
+                        🇺🇸 US FDA <span class="brand-tab-count">${usBrands.length}</span>
+                    </button>
+                </div>`;
+            } else if (!isUS && !localBrands.length && usBrands.length) {
+                html += `<div class="brand-market-note">
+                    No locally verified brand data found for ${userCountryName}.
+                    Showing US FDA-registered brands below.
+                </div>`;
+            }
+
+            const BRANDS_VISIBLE_LIMIT = 5;
+
+            // ── Local market brands section ──
+            if (localBrands.length) {
+                const localSource = localBrands[0].source_authority || `FDA FAERS (${userCountry})`;
+                html += `
+                <div class="brand-tab-content" id="brand-tab-local" style="display:block;">
+                    <p class="brands-subtitle">${localBrands.length} brand${localBrands.length > 1 ? 's' : ''} found in ${userCountryName}
+                        <span class="brands-source-note">(Source: ${localSource})</span>
+                    </p>
+                    <div class="brands-list">`;
+                localBrands.forEach((b, i) => {
+                    const hidden = i >= BRANDS_VISIBLE_LIMIT ? ' brand-card-hidden' : '';
+                    const overflow = i >= BRANDS_VISIBLE_LIMIT ? ' data-overflow="true"' : '';
+                    html += _renderBrandCard(b, i, hidden, overflow);
+                });
+                html += `</div>`;
+                if (localBrands.length > BRANDS_VISIBLE_LIMIT) {
+                    const extra = localBrands.length - BRANDS_VISIBLE_LIMIT;
+                    html += `<button class="show-more-brands-btn" data-target="brand-tab-local" data-extra="${extra}">
+                        Show ${extra} more brand${extra > 1 ? 's' : ''} <span class="show-more-chevron">▾</span>
+                    </button>`;
+                }
+                html += `</div>`;
+            }
+
+            // ── US FDA brands section ──
+            if (usBrands.length) {
+                const offset = localBrands.length;   // indices in flat array
+                const tabVisible = isUS || !localBrands.length;
+                html += `
+                <div class="brand-tab-content" id="brand-tab-us" style="display:${tabVisible ? 'block' : 'none'};">
+                    <p class="brands-subtitle">${usBrands.length} branded formulation${usBrands.length > 1 ? 's' : ''} from verified FDA label data.</p>
+                    <div class="brands-list">`;
+                usBrands.forEach((b, i) => {
+                    const hidden = i >= BRANDS_VISIBLE_LIMIT ? ' brand-card-hidden' : '';
+                    const overflow = i >= BRANDS_VISIBLE_LIMIT ? ' data-overflow="true"' : '';
+                    html += _renderBrandCard(b, offset + i, hidden, overflow);
+                });
+                html += `</div>`;
+                if (usBrands.length > BRANDS_VISIBLE_LIMIT) {
+                    const extra = usBrands.length - BRANDS_VISIBLE_LIMIT;
+                    html += `<button class="show-more-brands-btn" data-target="brand-tab-us" data-extra="${extra}">
+                        Show ${extra} more brand${extra > 1 ? 's' : ''} <span class="show-more-chevron">▾</span>
+                    </button>`;
+                }
+                html += `</div>`;
+            }
+
+            card.innerHTML = html;
+
+            // ── Tab switching ──
+            card.querySelectorAll('.brand-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    card.querySelectorAll('.brand-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    const which = tab.dataset.tab;
+                    const localEl = document.getElementById('brand-tab-local');
+                    const usEl = document.getElementById('brand-tab-us');
+                    if (localEl) localEl.style.display = (which === 'local') ? 'block' : 'none';
+                    if (usEl) usEl.style.display = (which === 'us') ? 'block' : 'none';
+                });
+            });
+
+            // ── Expand/collapse ──
+            card.querySelectorAll('.brand-expand-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = btn.dataset.idx;
+                    const details = document.getElementById(`brand-details-${idx}`);
+                    if (!details) return;
+                    const isOpen = details.style.display !== 'none';
+                    details.style.display = isOpen ? 'none' : 'block';
+                    btn.textContent = isOpen ? 'Learn More ▾' : 'Collapse ▴';
+                });
+            });
+
+            // ── Checkboxes ──
+            card.querySelectorAll('.brand-check').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const checked = card.querySelectorAll('.brand-check:checked');
+                    const btn = document.getElementById('compare-brands-btn');
+                    if (btn) btn.disabled = checked.length < 2;
+                });
+            });
+
+            // ── Show more / Show less ──
+            card.querySelectorAll('.show-more-brands-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetId = btn.dataset.target;
+                    const container = document.getElementById(targetId);
+                    if (!container) return;
+                    const overflowCards = container.querySelectorAll('.brand-card[data-overflow]');
+                    const isExpanded = btn.classList.contains('expanded');
+
+                    overflowCards.forEach(c => {
+                        if (isExpanded) {
+                            c.classList.add('brand-card-hidden');
+                        } else {
+                            c.classList.remove('brand-card-hidden');
+                        }
+                    });
+
+                    btn.classList.toggle('expanded');
+                    if (isExpanded) {
+                        const count = parseInt(btn.dataset.extra, 10) || overflowCards.length;
+                        btn.innerHTML = `Show ${count} more brand${count > 1 ? 's' : ''} <span class="show-more-chevron">▾</span>`;
+                    } else {
+                        btn.innerHTML = `Show less <span class="show-more-chevron">▴</span>`;
+                    }
+                });
+            });
+
+            // ── Compare button ──
+            const compareBtn = document.getElementById('compare-brands-btn');
+            if (compareBtn) {
+                compareBtn.addEventListener('click', () => {
+                    const checkedIdxs = Array.from(card.querySelectorAll('.brand-check:checked'))
+                        .map(cb => parseInt(cb.dataset.brandIdx, 10));
+                    if (checkedIdxs.length >= 2) {
+                        showBrandComparison(drug, checkedIdxs);
+                    }
+                });
+            }
+
+        } catch (err) {
+            card.innerHTML = `
+                <h3 class="druginfo-section-title">🏭 Brand Products</h3>
+                <p style="color:var(--text-muted);font-size:13px;">Could not load brand data.</p>`;
+        }
+    }
+
+    /**
+     * Group brands that share the same base name (brand_name) but differ by
+     * strength / dosage_form.  The "primary" entry keeps full details; extra
+     * dosages are stored in `_variants` for compact chip rendering.
+     */
+    function _groupBrands(brands) {
+        if (!brands || !brands.length) return brands;
+
+        const groups = new Map(); // key → { primary, variants }
+        for (const b of brands) {
+            // Normalise key: lowercase brand_name, strip trailing whitespace
+            const key = (b.brand_name || b.medicine_name || '').trim().toLowerCase();
+            if (!key) { groups.set(Math.random().toString(), { primary: b, variants: [b] }); continue; }
+
+            if (groups.has(key)) {
+                groups.get(key).variants.push(b);
+            } else {
+                groups.set(key, { primary: { ...b }, variants: [b] });
+            }
+        }
+
+        // For each group, pick the variant with the best pricing as primary
+        const result = [];
+        for (const { primary, variants } of groups.values()) {
+            if (variants.length === 1) {
+                primary._variants = variants;
+                result.push(primary);
+            } else {
+                // Pick best primary (prefer one with NADAC pricing)
+                const best = variants.slice().sort((a, c) => {
+                    const aScore = (a.nadac_per_unit ? 2 : 0) + (a.strength ? 1 : 0);
+                    const cScore = (c.nadac_per_unit ? 2 : 0) + (c.strength ? 1 : 0);
+                    return cScore - aScore;
+                })[0];
+                const grouped = { ...best, _variants: variants };
+                // Fill any blanks from other variants
+                if (!grouped.product_type) {
+                    grouped.product_type = variants.reduce((a, v) => a || v.product_type, '') || '';
+                }
+                if (!grouped.nadac_per_unit) {
+                    const priced = variants.find(v => v.nadac_per_unit);
+                    if (priced) {
+                        grouped.nadac_per_unit = priced.nadac_per_unit;
+                        grouped.nadac_unit = priced.nadac_unit;
+                        grouped.nadac_effective_date = priced.nadac_effective_date;
+                    }
+                }
+                if (!grouped.approximate_cost) {
+                    grouped.approximate_cost = variants.reduce((a, v) => a || v.approximate_cost, '') || '';
+                }
+                result.push(grouped);
+            }
+        }
+        return result;
+    }
+
+    /** Render a single brand card (used by both local and US sections). */
+    function _renderBrandCard(b, idx, extraClass = '', extraAttr = '') {
+        const combo = b.is_combination;
+        const comboTag = combo
+            ? '<span class="brand-tag combo">Combination</span>'
+            : '<span class="brand-tag pure">Single Ingredient</span>';
+        const productTag = b.product_type === 'HUMAN PRESCRIPTION DRUG'
+            ? '<span class="brand-tag rx">Rx</span>'
+            : (b.product_type === 'HUMAN OTC DRUG' ? '<span class="brand-tag otc">OTC</span>' : '');
+        const countryTag = b.market_country && b.market_country !== 'US'
+            ? `<span class="brand-tag market">${b.market_country}</span>` : '';
+
+        // Variant chips (grouped dosages)
+        const variants = b._variants || [];
+        let variantHtml = '';
+        if (variants.length > 1) {
+            variantHtml = `<div class="brand-variants">
+                ${variants.map(v => {
+                    const label = v.strength || v.dosage_form || 'N/A';
+                    let price = '';
+                    if (v.nadac_per_unit) {
+                        price = ` · ${_formatPrice(v.nadac_per_unit, 4)}/${v.nadac_unit || 'unit'}`;
+                    } else if (v.approximate_cost) {
+                        const pp = _parsePackPrice(v.approximate_cost);
+                        if (pp) price = ` · ${pp.currency}${pp.price.toFixed(2)}`;
+                    }
+                    return `<span class="brand-variant-chip">${label}${price}</span>`;
+                }).join('')}
+            </div>`;
+        }
+
+        return `
+        <div class="brand-card${extraClass}"${extraAttr} data-brand-idx="${idx}">
+            <div class="brand-card-header">
+                <label class="brand-check-label">
+                    <input type="checkbox" class="brand-check" data-brand-id="${b.id}" data-brand-idx="${idx}">
+                </label>
+                <div class="brand-card-title">
+                    <div class="brand-name-row">
+                        <strong class="brand-name">${b.medicine_name || b.brand_name}</strong>
+                        ${variants.length > 1 ? `<span class="brand-tag variant-count">${variants.length} dosages</span>` : ''}
+                        ${comboTag}${productTag}${countryTag}
+                    </div>
+                    <div class="brand-manufacturer">by ${b.manufacturer || 'Unknown manufacturer'}</div>
+                    ${variantHtml}
+                </div>
+                <button class="brand-expand-btn" data-idx="${idx}">Learn More ▾</button>
+            </div>
+            <div class="brand-details" id="brand-details-${idx}" style="display:none;">
+                ${renderBrandDetails(b)}
+            </div>
+        </div>`;
+    }
+
+    function renderBrandDetails(b) {
+        let html = '<div class="brand-details-inner">';
+
+        // Composition
+        html += '<div class="brand-detail-section">';
+        html += '<h4 class="brand-detail-heading">🧪 Composition</h4>';
+        const ingredients = b.active_ingredients || [];
+        if (ingredients.length) {
+            html += `<div class="brand-detail-row">
+                <span class="detail-label">Active Ingredients:</span>
+                <span class="detail-value">${ingredients.map(i => `<span class="ingredient-chip">${i}</span>`).join(' ')}</span>
+            </div>`;
+        }
+        if (ingredients.length > 1) {
+            html += `<div class="brand-detail-alert">⚠️ This is a <strong>combination product</strong> — contains additional active ingredients beyond the base drug.</div>`;
+        } else {
+            html += `<div class="brand-detail-ok">✅ <strong>Single-ingredient</strong> formulation — contains only the active drug.</div>`;
+        }
+        if (b.inactive_ingredients_summary) {
+            html += `<div class="brand-detail-row">
+                <span class="detail-label">Key Excipients:</span>
+                <span class="detail-value detail-small">${truncate(b.inactive_ingredients_summary, 300)}</span>
+            </div>`;
+        }
+        html += '</div>';
+
+        // Formulation
+        html += '<div class="brand-detail-section">';
+        html += '<h4 class="brand-detail-heading">💊 Formulation</h4>';
+        if (b.dosage_form) html += `<div class="brand-detail-row"><span class="detail-label">Form:</span><span class="detail-value">${b.dosage_form}</span></div>`;
+        if (b.strength) html += `<div class="brand-detail-row"><span class="detail-label">Strength:</span><span class="detail-value">${b.strength}</span></div>`;
+        if (b.route) html += `<div class="brand-detail-row"><span class="detail-label">Route:</span><span class="detail-value">${b.route}</span></div>`;
+        if (b.ndc) html += `<div class="brand-detail-row"><span class="detail-label">NDC:</span><span class="detail-value">${b.ndc}</span></div>`;
+        // Product Type
+        {
+            const pt = b.product_type || '';
+            let typeLabel = '';
+            if (pt === 'HUMAN PRESCRIPTION DRUG') typeLabel = 'Rx (Prescription)';
+            else if (pt === 'HUMAN OTC DRUG') typeLabel = 'OTC (Over-the-Counter)';
+            else if (pt) typeLabel = pt.charAt(0).toUpperCase() + pt.slice(1).toLowerCase();
+            if (typeLabel) html += `<div class="brand-detail-row"><span class="detail-label">Type:</span><span class="detail-value">${typeLabel}</span></div>`;
+        }
+        html += '</div>';
+
+        // Pricing
+        html += '<div class="brand-detail-section">';
+        html += '<h4 class="brand-detail-heading">💰 Pricing</h4>';
+        if (b.nadac_per_unit) {
+            html += `<div class="brand-detail-row">
+                <span class="detail-label">NADAC Unit Cost:</span>
+                <span class="detail-value"><strong>${_formatPrice(b.nadac_per_unit, 4)}</strong>/${b.nadac_unit || 'unit'}</span>
+            </div>`;
+            html += `<div class="brand-detail-row">
+                <span class="detail-label">Est. Monthly (30–90 day):</span>
+                <span class="detail-value">${_formatPrice(b.nadac_per_unit * 30)} – ${_formatPrice(b.nadac_per_unit * 90)}</span>
+            </div>`;
+            if (b.nadac_effective_date) {
+                html += `<div class="brand-detail-row"><span class="detail-label">Price Date:</span><span class="detail-value">${b.nadac_effective_date}</span></div>`;
+            }
+            html += `<div class="brand-source-note">Source: CMS NADAC (National Average Drug Acquisition Cost)</div>`;
+        } else if (b.approximate_cost) {
+            const pp = _parsePackPrice(b.approximate_cost);
+            html += `<div class="brand-detail-row"><span class="detail-label">Pack Price:</span><span class="detail-value">${b.approximate_cost}</span></div>`;
+            if (pp && pp.count > 1) {
+                const unitP = pp.price / pp.count;
+                html += `<div class="brand-detail-row"><span class="detail-label">Unit Price:</span><span class="detail-value">${pp.currency}${unitP.toFixed(2)}/unit</span></div>`;
+                html += `<div class="brand-detail-row">
+                    <span class="detail-label">Est. Monthly (30–90 day):</span>
+                    <span class="detail-value">${pp.currency}${(unitP * 30).toFixed(2)} – ${pp.currency}${(unitP * 90).toFixed(2)} <small>(est.)</small></span>
+                </div>`;
+            }
+        } else {
+            html += `<div class="brand-detail-row"><span class="detail-value" style="color:var(--text-muted);">No verified pricing data for this formulation.</span></div>`;
+        }
+        html += '</div>';
+
+        // Source
+        if (b.source_url) {
+            const srcLabel = (b.source_authority || 'FDA').includes('Verified')
+                ? 'View Source ↗'
+                : (b.source_authority || '').includes('Web')
+                    ? 'View Source ↗'
+                    : (b.source_authority || '').includes('Health Canada')
+                        ? 'View Health Canada ↗'
+                        : 'View FDA Label ↗';
+            html += `<div class="brand-source-row">
+                <span class="authority-badge" style="background:#1a5276;">${b.source_authority || 'FDA'}</span>
+                <a href="${b.source_url}" target="_blank" rel="noopener">${srcLabel}</a>
+            </div>`;
+        } else if (b.source_authority) {
+            html += `<div class="brand-source-row">
+                <span class="authority-badge" style="background:#1a5276;">${b.source_authority}</span>
+            </div>`;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    /* ── Brand Comparison Modal ── */
+
+    function showBrandComparison(drug, brandIdxs) {
+        // Remove any existing comparison modal
+        const existing = document.getElementById('brand-comparison-modal');
+        if (existing) existing.remove();
+
+        // Pull brand data from the already-loaded cache (no extra API call)
+        const brands = brandIdxs
+            .map(idx => _brandsData[idx])
+            .filter(Boolean);
+
+        if (brands.length < 2) return;
+
+        // Build comparison table
+        const modalHtml = `
+            <div id="brand-comparison-modal" class="brand-comparison-overlay">
+                <div class="brand-comparison-content">
+                    <div class="brand-comparison-header">
+                        <h3>⚖️ Brand Comparison — ${drug.generic_name}</h3>
+                        <button id="close-brand-comparison" class="btn btn-small btn-outline">✕ Close</button>
+                    </div>
+                    <div class="brand-comparison-scroll">
+                        <table class="brand-comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Attribute</th>
+                                    ${brands.map(b => `<th>${b.medicine_name || b.brand_name}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="attr-label">Manufacturer</td>
+                                    ${brands.map(b => `<td>${b.manufacturer || '<span class="unavailable">Information unavailable</span>'}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Dosage Form</td>
+                                    ${brands.map(b => `<td>${b.dosage_form || '<span class="unavailable">Information unavailable</span>'}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Strength</td>
+                                    ${brands.map(b => {
+                                        const variants = b._variants || [];
+                                        if (variants.length > 1) {
+                                            return `<td>${variants.map(v => v.strength || '<span class="unavailable">N/A</span>').join('<br>')}</td>`;
+                                        }
+                                        return `<td>${b.strength || '<span class="unavailable">Information unavailable</span>'}</td>`;
+                                    }).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Route</td>
+                                    ${brands.map(b => `<td>${b.route || '<span class="unavailable">Information unavailable</span>'}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Type</td>
+                                    ${brands.map(b => {
+                                        const pt = b.product_type || '';
+                                        let t;
+                                        if (pt === 'HUMAN PRESCRIPTION DRUG') t = 'Rx (Prescription)';
+                                        else if (pt === 'HUMAN OTC DRUG') t = 'OTC (Over-the-Counter)';
+                                        else if (pt.toLowerCase() === 'allopathy') t = 'Allopathy';
+                                        else if (pt.toLowerCase() === 'ayurvedic') t = 'Ayurvedic';
+                                        else if (pt.toLowerCase() === 'homeopathy') t = 'Homeopathy';
+                                        else if (pt) t = pt;
+                                        else t = '<span class="unavailable">Information unavailable</span>';
+                                        return `<td>${t}</td>`;
+                                    }).join('')}
+                                </tr>
+                                <tr class="highlight-row">
+                                    <td class="attr-label">Composition</td>
+                                    ${brands.map(b => {
+                                        const c = b.is_combination;
+                                        return `<td><span class="brand-tag ${c ? 'combo' : 'pure'}">${c ? 'Combination' : 'Single Ingredient'}</span></td>`;
+                                    }).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Active Ingredients</td>
+                                    ${brands.map(b => `<td class="detail-small">${(b.active_ingredients || []).join(', ') || '<span class="unavailable">Information unavailable</span>'}</td>`).join('')}
+                                </tr>
+                                <tr class="highlight-row">
+                                    <td class="attr-label">NADAC Unit Price</td>
+                                    ${brands.map(b => {
+                                        if (b.nadac_per_unit) return `<td><strong>${_formatPrice(b.nadac_per_unit, 4)}</strong>/${b.nadac_unit || 'unit'}</td>`;
+                                        return `<td class="unavailable">Information unavailable</td>`;
+                                    }).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Pack Price</td>
+                                    ${brands.map(b => {
+                                        const pp = _parsePackPrice(b.approximate_cost);
+                                        if (pp) return `<td>${pp.currency}${pp.price.toFixed(2)} ${pp.count > 1 ? `(${pp.count} units)` : ''}</td>`;
+                                        return `<td class="unavailable">Information unavailable</td>`;
+                                    }).join('')}
+                                </tr>
+                                <tr class="highlight-row">
+                                    <td class="attr-label">Est. Monthly Cost</td>
+                                    ${brands.map(b => {
+                                        // Prefer NADAC-based range (30-90 days)
+                                        if (b.nadac_per_unit) return `<td>${_formatPrice(b.nadac_per_unit * 30)} – ${_formatPrice(b.nadac_per_unit * 90)}</td>`;
+                                        // Try to compute from pack price (assume 1 unit/day for tablets/capsules)
+                                        const pp = _parsePackPrice(b.approximate_cost);
+                                        if (pp && pp.count > 0) {
+                                            const unitP = pp.price / pp.count;
+                                            const lo = unitP * 30, hi = unitP * 90;
+                                            return `<td>${pp.currency}${lo.toFixed(2)} – ${pp.currency}${hi.toFixed(2)} <small>(est.)</small></td>`;
+                                        }
+                                        // Check variants
+                                        const pricedV = (b._variants || []).find(v => v.nadac_per_unit);
+                                        if (pricedV) return `<td>${_formatPrice(pricedV.nadac_per_unit * 30)} – ${_formatPrice(pricedV.nadac_per_unit * 90)}</td>`;
+                                        return `<td class="unavailable">Information unavailable</td>`;
+                                    }).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">NDC</td>
+                                    ${brands.map(b => {
+                                        if (b.ndc) return `<td class="detail-small">${b.ndc}</td>`;
+                                        if (b.market_country && b.market_country !== 'US') return `<td class="detail-small" style="color:var(--text-muted);">N/A (${b.market_country})</td>`;
+                                        return `<td class="unavailable">Information unavailable</td>`;
+                                    }).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Source</td>
+                                    ${brands.map(b => `<td>${b.source_url ? `<a href="${b.source_url}" target="_blank" rel="noopener">${b.source_authority || 'FDA'} ↗</a>` : (b.source_authority || '<span class="unavailable">Information unavailable</span>')}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td class="attr-label">Market</td>
+                                    ${brands.map(b => `<td>${b.market_country || 'US'}</td>`).join('')}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+
+        // Inject modal into body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Close button
+        document.getElementById('close-brand-comparison').addEventListener('click', () => {
+            document.getElementById('brand-comparison-modal').remove();
+        });
+
+        // Close on backdrop click (outside the white content box)
+        document.getElementById('brand-comparison-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'brand-comparison-modal') {
+                e.target.remove();
+            }
+        });
+
+        // Close on Escape key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('brand-comparison-modal');
+                if (modal) modal.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
     }
 
     return { render };

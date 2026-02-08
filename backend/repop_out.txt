@@ -1,0 +1,56 @@
+brand_products columns: ['id', 'drug_id', 'brand_name', 'manufacturer', 'ndc', 'dosage_form', 'strength', 'route', 'is_combination', 'active_ingredients', 'inactive_ingredients_summary', 'product_type', 'nadac_per_unit', 'nadac_unit', 'nadac_effective_date', 'approximate_cost', 'source_url', 'source_authority', 'created_at', 'medicine_name']
+Found 44 drugs.
+
+[1/44] Lisinopril — 25 brands.
+[2/44] Metformin — 34 brands.
+[3/44] Amlodipine — 43 brands.
+[4/44] Atorvastatin — 20 brands.
+[5/44] Losartan — 33 brands.
+[6/44] Amoxicillin — 32 brands.
+[7/44] Metoprolol — 33 brands.
+[8/44] Omeprazole — 40 brands.
+[9/44] Hydrochlorothiazide — 41 brands.
+[10/44] Levothyroxine — 22 brands.
+[11/44] Simvastatin — 22 brands.
+[12/44] Sertraline — 31 brands.
+[13/44] Gabapentin — 26 brands.
+[14/44] Rosuvastatin — 27 brands.
+[15/44] Albuterol — 37 brands.
+[16/44] Pravastatin — 20 brands.
+[17/44] Montelukast — 33 brands.
+[18/44] Carvedilol — 29 brands.
+[19/44] Ibuprofen — 47 brands.
+[20/44] Valsartan — 33 brands.
+[21/44] Escitalopram — 28 brands.
+[22/44] Furosemide — 32 brands.
+[23/44] Fluoxetine — 29 brands.
+[24/44] Spironolactone — 22 brands.
+[25/44] Pantoprazole — 40 brands.
+[26/44] Warfarin — 16 brands.
+[27/44] Azithromycin — 35 brands.
+[28/44] Trazodone — 26 brands.
+[29/44] Prednisone — 30 brands.
+[30/44] Duloxetine — 29 brands.
+[31/44] Tamsulosin — 31 brands.
+[32/44] Meloxicam — 26 brands.
+[33/44] Clopidogrel — 39 brands.
+[34/44] Doxycycline — 38 brands.
+[35/44] Paracetamol — 10 brands.
+[36/44] Aspirin — 50 brands.
+[37/44] Celebrex — 1 brands.
+[38/44] Celexa — 1 brands.
+[39/44] Bupropion — 39 brands.
+[40/44] Ethanol — 24 brands.
+[41/44] Metronidazole — 37 brands.
+[42/44] Ethinylestradiol — 10 brands.
+[43/44] Nicotin — 0 brands.
+[44/44] Levocetirizine — 37 brands.
+
+Done! Success: 44, Failed: 0
+Total brand_products rows: 1258
+  [Low Dose Aspirin] medicine_name = Low Dose Aspirin
+  [Rapidol Aspirin] medicine_name = Rapidol Aspirin
+  [Aspirin Low Dose] medicine_name = Aspirin Low Dose 81 mg
+  [Goodys Max] medicine_name = Goodys Max
+  [Heb Effervescent Pain Relief] medicine_name = Heb Effervescent Pain Relief
+te

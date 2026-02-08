@@ -5,16 +5,50 @@
 
 const App = (() => {
     let currentModule = 'druginfo';
+    let _userCountry = '';          // detected ISO country code
+    let _userCountryName = '';      // human-readable name
 
     const modules = {
         druginfo: DrugInfoModule,
         askmore: AskMoreModule,
         comparison: ComparisonModule,
-        safety: SafetyModule,
+        prescription: PrescriptionVerifierModule,
     };
+
+    /* ── Country detection via IP geolocation ── */
+    async function detectCountry() {
+        // Check cache first
+        const cached = localStorage.getItem('clerasense_country');
+        const cachedName = localStorage.getItem('clerasense_country_name');
+        if (cached) {
+            _userCountry = cached;
+            _userCountryName = cachedName || cached;
+            return;
+        }
+        try {
+            const resp = await fetch('https://ipapi.co/json/', { timeout: 5000 });
+            if (resp.ok) {
+                const data = await resp.json();
+                _userCountry = (data.country_code || 'US').toUpperCase();
+                _userCountryName = data.country_name || _userCountry;
+                localStorage.setItem('clerasense_country', _userCountry);
+                localStorage.setItem('clerasense_country_name', _userCountryName);
+            }
+        } catch (e) {
+            console.warn('Country detection failed, defaulting to US');
+            _userCountry = 'US';
+            _userCountryName = 'United States';
+        }
+    }
+
+    function getUserCountry() { return _userCountry || 'US'; }
+    function getUserCountryName() { return _userCountryName || 'United States'; }
 
     function init() {
         Auth.init();
+
+        // Detect user's country in background (non-blocking)
+        detectCountry();
 
         // Check for existing session
         const token = API.getToken();
@@ -111,5 +145,5 @@ const App = (() => {
     // Auto-init on DOM ready
     document.addEventListener('DOMContentLoaded', init);
 
-    return { showApp, showAuth };
+    return { showApp, showAuth, getUserCountry, getUserCountryName };
 })();

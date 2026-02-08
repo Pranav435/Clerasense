@@ -99,9 +99,9 @@
                         <span class="sidebar-icon">⚖️</span>
                         Drug Comparison
                     </button>
-                    <button class="sidebar-btn" data-module="safety">
-                        <span class="sidebar-icon">🛡️</span>
-                        Safety Checker
+                    <button class="sidebar-btn" data-module="prescription">
+                        <span class="sidebar-icon">📝</span>
+                        Prescription Verifier
                     </button>
                 </nav>
                 <div class="sidebar-footer">
@@ -138,6 +138,10 @@
         </div>
     </div>
 
+    <!-- OCR Libraries (free, no API keys) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
     <!-- Scripts -->
     <script src="js/api.js"></script>
     <script src="js/currency.js"></script>
@@ -145,7 +149,7 @@
     <script src="js/modules/druginfo.js"></script>
     <script src="js/modules/chat.js"></script>
     <script src="js/modules/comparison.js"></script>
-    <script src="js/modules/safety.js"></script>
+    <script src="js/modules/prescription.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

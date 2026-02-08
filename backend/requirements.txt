@@ -10,4 +10,5 @@ numpy>=1.26
 bcrypt>=4.1
 pytest>=8.0
 requests>=2.31
+ddgs>=6.0
 apscheduler>=3.10

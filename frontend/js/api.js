@@ -144,9 +144,30 @@ const API = (() => {
         });
     }
 
+    // ── Prescription Verification ──
+    async function verifyPrescription(ocrText) {
+        return request('/prescription/verify', {
+            method: 'POST',
+            body: JSON.stringify({ ocr_text: ocrText }),
+        });
+    }
+
     // ── Pricing ──
     async function getPricing(drugName) {
         return request(`/pricing/${encodeURIComponent(drugName)}`);
+    }
+
+    // ── Brand Products ──
+    async function getDrugBrands(drugId, country = '') {
+        const params = country ? `?country=${encodeURIComponent(country)}` : '';
+        return request(`/drugs/${drugId}/brands${params}`);
+    }
+
+    async function compareBrands(drugId, brandIds) {
+        return request(`/drugs/${drugId}/brands/compare`, {
+            method: 'POST',
+            body: JSON.stringify({ brand_ids: brandIds }),
+        });
     }
 
     return {
@@ -154,6 +175,7 @@ const API = (() => {
         getDoctor, setDoctor,
         login, register,
         searchDrugs, getDrug, getDrugByName, autocompleteDrugs, suggestDrugs,
-        chat, compareDrugs, checkSafety, getPricing,
+        chat, compareDrugs, checkSafety, verifyPrescription, getPricing,
+        getDrugBrands, compareBrands,
     };
 })();
