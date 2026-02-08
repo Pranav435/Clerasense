@@ -223,6 +223,7 @@ const DrugInfoModule = (() => {
 
         renderDrugProfile(drug, pricingData, resultsEl);
         updateContextPanel(drug);
+        updateWarningsPanel(drug);
 
         // Load brands asynchronously (after main profile renders)
         loadBrandsPanel(drug);
@@ -804,6 +805,88 @@ const DrugInfoModule = (() => {
                 ${s.url ? `<a href="${s.url}" target="_blank" rel="noopener" class="source-link">View source ↗</a>` : ''}
             </div>
         `).join('');
+    }
+
+    /* ── Warnings Panel (right sidebar) ── */
+    function updateWarningsPanel(drug) {
+        const panel = document.getElementById('panel-warnings');
+        if (!panel) return;
+
+        const bullets = _extractTopWarnings(drug);
+        if (!bullets.length) {
+            panel.innerHTML = '<p class="placeholder">No critical warnings.</p>';
+            return;
+        }
+
+        panel.innerHTML = `
+            <div class="panel-warning-drug">
+                <div class="panel-warning-drug-name">${drug.generic_name}</div>
+                <ul class="panel-warning-list">
+                    ${bullets.map(b => `<li>${b}</li>`).join('')}
+                </ul>
+            </div>`;
+    }
+
+    /**
+     * Extract the 2-3 most important warnings for a drug,
+     * as short single-sentence bullet points.
+     */
+    function _extractTopWarnings(drug) {
+        const bullets = [];
+
+        if (!drug.safety_warnings || !drug.safety_warnings.length) return bullets;
+
+        for (const w of drug.safety_warnings) {
+            // 1. Black box warning — highest priority
+            if (w.black_box_warnings && bullets.length < 3) {
+                const short = _shortBullet(w.black_box_warnings);
+                if (short) bullets.push('⛔ ' + short);
+            }
+            // 2. Contraindications — next priority
+            if (w.contraindications && bullets.length < 3) {
+                // Try to get the first meaningful sentence
+                const short = _shortBullet(w.contraindications);
+                if (short) bullets.push('🚫 ' + short);
+            }
+            // 3. Pregnancy risk if serious
+            if (w.pregnancy_risk && bullets.length < 3) {
+                const preg = (w.pregnancy_risk || '').toLowerCase();
+                if (preg.includes('category d') || preg.includes('category x') || preg.includes('contraindicated')) {
+                    bullets.push('🤰 Pregnancy risk: Contraindicated or harmful to fetus');
+                }
+            }
+        }
+
+        // 4. Major interactions
+        if (drug.interactions && drug.interactions.length && bullets.length < 3) {
+            const major = drug.interactions.filter(ix =>
+                ix.severity === 'major' || ix.severity === 'contraindicated');
+            if (major.length) {
+                const names = major.slice(0, 2).map(ix => ix.interacting_drug).join(', ');
+                bullets.push(`🔗 Major interactions: ${names}`);
+            }
+        }
+
+        return bullets.slice(0, 3);
+    }
+
+    /** Shorten text to one concise bullet (~80 chars). */
+    function _shortBullet(text) {
+        if (!text) return '';
+        // Strip block chars
+        let clean = text.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢]/g, '').trim();
+        // Strip "ADVERSE REACTIONS:" or "ADDITIONAL WARNINGS:" prefixes
+        clean = clean.replace(/^(ADVERSE REACTIONS|ADDITIONAL WARNINGS|WARNINGS):\s*/i, '');
+        // Take first sentence
+        const dotIdx = clean.indexOf('. ');
+        if (dotIdx > 0 && dotIdx < 120) {
+            clean = clean.substring(0, dotIdx + 1);
+        }
+        // Hard truncate
+        if (clean.length > 100) {
+            clean = clean.substring(0, 97) + '…';
+        }
+        return clean;
     }
 
     /* ── Brands Panel ── */

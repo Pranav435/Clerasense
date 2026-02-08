@@ -34,7 +34,7 @@ UNSAFE_INTENTS = {
     INTENT_DOSE_PERSONALIZATION,
     INTENT_PATIENT_ADVICE,
     INTENT_SPECULATIVE,
-    INTENT_OFF_TOPIC,
+    # INTENT_OFF_TOPIC is intentionally NOT here — handled conversationally by LLM
 }
 
 # ── Pattern-based rules ──
@@ -135,6 +135,20 @@ SAFETY_PATTERNS = [
     r"\badverse\b",
 ]
 
+OFF_TOPIC_PATTERNS = [
+    r"\b(weather|forecast|temperature|rain|sunny)\b",
+    r"\b(football|soccer|basketball|cricket|tennis|baseball|hockey)\b",
+    r"\b(movie|film|actor|actress|netflix|imdb)\b",
+    r"\b(recipe|cook(ing)?|bak(e|ing)|ingredients?)\b",
+    r"\b(stock\s*market|bitcoin|crypto|invest(ment|ing)?)\b",
+    r"\b(joke|funny|humor|laugh)\b",
+    r"\b(news|politic(s|al)|election|president|prime\s+minister)\b",
+    r"\b(song|music|concert|album|spotify)\b",
+    r"\b(travel|flight|hotel|vacation|holiday)\b",
+    r"\bwho\s+(won|is\s+winning|scored)\b",
+    r"\b(homework|essay|school|college)\b(?!.*\b(drug|medicine|medication|pharm)\b)",
+]
+
 
 def classify_intent(query: str) -> str:
     """
@@ -169,6 +183,10 @@ def classify_intent(query: str) -> str:
         return INTENT_INTERACTION
     if _matches(q, SAFETY_PATTERNS):
         return INTENT_SAFETY_CHECK
+
+    # ── Off-topic (not refused, but routed to conversational LLM) ──
+    if _matches(q, OFF_TOPIC_PATTERNS):
+        return INTENT_OFF_TOPIC
 
     # Default: treat as general drug information query
     return INTENT_DRUG_INFO

@@ -15,8 +15,11 @@ Lookup flow:
   cross-source verification → DB insert → embedding generation → return Drug
 """
 
+import concurrent.futures
 import logging
 from typing import Optional
+
+from flask import current_app
 
 from app.database import db
 from app.models.models import Drug
@@ -66,17 +69,84 @@ def lookup_drug(name: str) -> Optional[Drug]:
 
 def lookup_drugs(names: list[str]) -> tuple[list[Drug], list[str]]:
     """
-    Look up multiple drugs by name.
+    Look up multiple drugs by name — with parallel on-demand ingestion.
+
+    Phase 1: Batch check which drugs are already in the DB (fast).
+    Phase 2: Ingest all missing drugs in parallel threads.
+    Phase 3: Reload results from the main DB session.
+
     Returns (found_drugs, not_found_names).
     """
-    found = []
-    not_found = []
-    for name in names:
-        drug = lookup_drug(name)
+    if not names:
+        return [], []
+
+    clean_names = [n.strip() for n in names if n.strip()]
+    if not clean_names:
+        return [], []
+
+    # ── Phase 1: fast DB scan ──────────────────────────────────────
+    found_map: dict[str, Drug] = {}            # clean_name → Drug
+    missing: list[str] = []
+
+    for name in clean_names:
+        drug = Drug.query.filter(Drug.generic_name.ilike(name)).first()
+        if not drug:
+            drug = Drug.query.filter(Drug.generic_name.ilike(f"%{name}%")).first()
         if drug:
-            found.append(drug)
-        else:
-            not_found.append(name.strip())
+            found_map[name] = drug
+            continue
+
+        # brand-name fallback
+        matched = False
+        for d in Drug.query.all():
+            if any(b.lower() == name.lower() for b in (d.brand_names or [])):
+                found_map[name] = d
+                matched = True
+                break
+        if not matched:
+            missing.append(name)
+
+    # ── Phase 2: parallel on-demand ingestion for missing drugs ────
+    if missing:
+        app = current_app._get_current_object()
+
+        def _ingest_in_context(drug_name: str):
+            """Run ingestion inside its own app context so each thread
+            gets a fresh scoped DB session."""
+            with app.app_context():
+                return drug_name, _on_demand_ingest(drug_name)
+
+        workers = min(len(missing), 4)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(_ingest_in_context, n) for n in missing]
+            for fut in concurrent.futures.as_completed(futures):
+                try:
+                    name, drug = fut.result()
+                    if drug:
+                        found_map[name] = drug
+                except Exception as exc:
+                    logger.error("Parallel ingestion error: %s", exc)
+
+    # ── Phase 3: reload in the *current* session to avoid detached objects
+    drug_ids = [d.id for d in found_map.values()]
+    if drug_ids:
+        reloaded = {d.id: d for d in
+                    Drug.query.filter(Drug.id.in_(drug_ids)).all()}
+    else:
+        reloaded = {}
+
+    # preserve original order
+    found: list[Drug] = []
+    not_found: list[str] = []
+    seen_ids: set[int] = set()
+    for name in clean_names:
+        drug = found_map.get(name)
+        if drug and drug.id in reloaded and drug.id not in seen_ids:
+            found.append(reloaded[drug.id])
+            seen_ids.add(drug.id)
+        elif not drug:
+            not_found.append(name)
+
     return found, not_found
 
 

@@ -1,11 +1,10 @@
 """
 RAG (Retrieval-Augmented Generation) service.
-Strict rules:
-  1. Retrieve first — no retrieval means no LLM call.
-  2. LLM only summarizes retrieved data.
-  3. Every claim must cite its source.
-  4. Missing data → explicit "Not available in verified sources." message.
-  5. Neutral, clinical tone. No recommendations.
+Rules:
+  1. Retrieve first – if retrieval succeeds, LLM summarizes only that data.
+  2. If retrieval is empty, LLM responds conversationally (no fabricated facts).
+  3. Every factual claim must cite its source.
+  4. Neutral, clinical tone. No recommendations.
 """
 
 import json
@@ -51,6 +50,36 @@ Structure your response with these sections as applicable:
 - **Sources**: List all cited sources
 
 If the query doesn't relate to the retrieved drugs, state that clearly."""
+
+
+# Prompt used when retrieval returned no drug data – conversational mode.
+NO_CONTEXT_PROMPT = """You are Clerasense, an AI drug information assistant designed for licensed physicians.
+
+The user asked a question, but NO matching drug data was found in the verified database.
+
+ABSOLUTE RULES:
+1. NEVER fabricate, invent, or hallucinate any drug information, dosages, interactions, side effects, or medical facts. You have NO verified context to cite.
+2. NEVER diagnose, recommend treatments, or prescribe medications.
+3. Be conversational, warm, and helpful — not robotic or arcane.
+4. Keep responses concise (2–5 sentences).
+
+RESPONSE STRATEGY:
+• If the question is clearly about a specific drug or medication but wasn't found:
+  – Acknowledge you couldn't find it, suggest checking the spelling, or trying the generic name.
+  – Example: "I couldn't find that medication in our database. Could you double-check the spelling? Using the generic name (e.g., 'atorvastatin' instead of a brand name) often works better."
+
+• If the question is drug-related but vague (e.g., "blood pressure medications"):
+  – Explain that you work best with specific drug names, and suggest examples.
+  – Example: "I can provide detailed information when you mention a specific drug. For blood pressure, you could ask about Lisinopril, Amlodipine, or Losartan, for instance."
+
+• If the question is a follow-up referencing earlier conversation:
+  – Use the conversation history to understand context and guide the user.
+
+• If the question is completely unrelated to drugs/medicine/pharmacy (e.g., weather, sports, cooking):
+  – Politely explain your specialty and redirect.
+  – Example: "I'm a drug information assistant, so I can't help with that. But I'd be happy to look up any medication details, interactions, or dosage guidelines for you!"
+
+• Suggest what you CAN help with: indications, dosage guidelines, drug interactions, safety warnings, pricing, regulatory info, and drug comparisons."""
 
 
 def _extract_drug_names_from_history(conversation_history: list) -> list[str]:
@@ -104,17 +133,9 @@ def generate_rag_response(query: str, intent: str, conversation_history: list | 
             logger.info("Follow-up: augmented query → %s", augmented)
             retrieved = retrieve_drugs(augmented)
 
-    # Step 2: No retrieval → no answer (hard rule)
+    # Step 2: No retrieval → conversational LLM response (no fabricated drug data)
     if not retrieved:
-        return {
-            "response": (
-                "The requested information is not available in our verified sources. "
-                "Our database contains regulatory-approved drug information only. "
-                "If you believe this drug should be included, please contact the Clerasense team."
-            ),
-            "sections": {},
-            "sources": [],
-        }
+        return _generate_conversational_response(query, intent, conversation_history)
 
     # Step 3: Build context
     context_text = _build_context(retrieved)
@@ -274,3 +295,53 @@ def _format_fallback(retrieved: list[dict]) -> str:
         parts.append("")
 
     return "\n".join(parts)
+
+
+def _generate_conversational_response(
+    query: str, intent: str, conversation_history: list
+) -> dict:
+    """Generate a natural-language LLM response when no drug data was retrieved.
+
+    The LLM is explicitly forbidden from fabricating drug facts and instead
+    guides the user toward queries the platform can answer.
+    """
+    try:
+        client = _get_client()
+        messages: list[dict] = [{"role": "system", "content": NO_CONTEXT_PROMPT}]
+
+        # Include recent conversation history so the LLM understands context
+        for msg in (conversation_history or [])[-10:]:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content[:1500]})
+
+        messages.append({
+            "role": "user",
+            "content": (
+                f"Doctor's query: {query}\n"
+                f"Detected intent category: {intent}\n\n"
+                "Respond naturally and helpfully. Remember: do NOT fabricate any drug data."
+            ),
+        })
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.4,
+            max_tokens=500,
+        )
+        answer = response.choices[0].message.content
+    except Exception as exc:
+        logger.error("Conversational LLM call failed: %s", exc)
+        answer = (
+            "I wasn't able to find specific drug information for your query. "
+            "Try asking about a specific medication by name — for example, "
+            "\"Tell me about Metformin\" or \"What are the side effects of Lisinopril?\""
+        )
+
+    return {
+        "response": answer,
+        "sections": _extract_sections(answer),
+        "sources": [],
+    }

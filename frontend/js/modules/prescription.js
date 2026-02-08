@@ -191,21 +191,23 @@ const PrescriptionVerifierModule = (() => {
                 return;
             }
 
-            // Scanned PDF — render pages to canvas and OCR each
-            showOCRProgress('Scanned PDF detected. Running OCR…', 0.3);
+            // Scanned PDF — render pages to canvas, preprocess, and OCR each
+            showOCRProgress('Scanned PDF detected. Preprocessing & running OCR…', 0.3);
             let ocrText = '';
             for (let i = 1; i <= pdf.numPages; i++) {
                 showOCRProgress(`OCR on page ${i}/${pdf.numPages}…`, 0.3 + (i - 1) / pdf.numPages * 0.7);
                 const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.0 });  // Higher scale = better OCR
+                const viewport = page.getViewport({ scale: 3.0 });  // 3x for scanned docs
                 const canvas = document.createElement('canvas');
                 canvas.width = viewport.width;
                 canvas.height = viewport.height;
                 const ctx = canvas.getContext('2d');
                 await page.render({ canvasContext: ctx, viewport }).promise;
 
-                const result = await runOCR(canvas);
-                ocrText += result + '\n';
+                // Preprocess the rendered page for better OCR
+                const preprocessed = _preprocessForOCR_canvas(canvas);
+                const result = await runOCR(preprocessed);
+                ocrText += _postProcessOCR(result) + '\n';
             }
 
             document.getElementById('rx-text').value = ocrText.trim();
@@ -223,12 +225,19 @@ const PrescriptionVerifierModule = (() => {
     /* ───────────────── image OCR (Tesseract.js) ───────────────── */
 
     async function processImage(file) {
-        showOCRProgress('Initializing OCR engine…', 0);
+        showOCRProgress('Preprocessing image…', 0);
 
         try {
-            const result = await runOCR(file);
-            document.getElementById('rx-text').value = result;
-            document.getElementById('rx-verify-btn').disabled = !result.trim();
+            // Load image into a canvas for preprocessing
+            const img = await _loadImage(file);
+            const preprocessed = _preprocessForOCR(img);
+
+            showOCRProgress('Running OCR…', 0.15);
+            const result = await runOCR(preprocessed);
+            const cleaned = _postProcessOCR(result);
+
+            document.getElementById('rx-text').value = cleaned;
+            document.getElementById('rx-verify-btn').disabled = !cleaned.trim();
             showOCRProgress('OCR complete.', 1);
             setTimeout(() => hideOCRProgress(), 1500);
         } catch (err) {
@@ -236,6 +245,189 @@ const PrescriptionVerifierModule = (() => {
             showOCRProgress('OCR failed. Please paste text manually.', 0);
             document.getElementById('rx-ocr-status').style.color = '#c0392b';
         }
+    }
+
+    /** Load a File/Blob into an HTMLImageElement. */
+    function _loadImage(source) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            if (source instanceof File || source instanceof Blob) {
+                img.src = URL.createObjectURL(source);
+            } else {
+                img.src = source;
+            }
+        });
+    }
+
+    /**
+     * Canvas-based image preprocessing pipeline for better OCR accuracy.
+     * Steps: upscale → grayscale → contrast → adaptive threshold → sharpen.
+     * Returns a <canvas> element ready for Tesseract.
+     */
+    function _preprocessForOCR(img) {
+        // ── 1. Upscale small images (Tesseract works best at ≥300 DPI) ──
+        const MIN_DIM = 1500; // target minimum for longest side
+        let scale = 1;
+        const maxSide = Math.max(img.naturalWidth, img.naturalHeight);
+        if (maxSide < MIN_DIM) {
+            scale = Math.ceil(MIN_DIM / maxSide);
+            scale = Math.min(scale, 4); // cap at 4x
+        }
+
+        const w = img.naturalWidth * scale;
+        const h = img.naturalHeight * scale;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // Render with bicubic-quality scaling
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+
+        let imageData = ctx.getImageData(0, 0, w, h);
+        const px = imageData.data; // Uint8ClampedArray [R,G,B,A, …]
+
+        // ── 2. Grayscale (luminance-weighted) ──
+        for (let i = 0; i < px.length; i += 4) {
+            const gray = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+            px[i] = px[i + 1] = px[i + 2] = gray;
+        }
+
+        // ── 3. Contrast enhancement (CLAHE-lite: stretch histogram) ──
+        let minV = 255, maxV = 0;
+        for (let i = 0; i < px.length; i += 4) {
+            if (px[i] < minV) minV = px[i];
+            if (px[i] > maxV) maxV = px[i];
+        }
+        const range = maxV - minV || 1;
+        for (let i = 0; i < px.length; i += 4) {
+            const stretched = ((px[i] - minV) / range) * 255;
+            px[i] = px[i + 1] = px[i + 2] = stretched;
+        }
+
+        // ── 4. Adaptive threshold (Otsu-like binarisation) ──
+        // Build histogram
+        const hist = new Array(256).fill(0);
+        for (let i = 0; i < px.length; i += 4) hist[Math.round(px[i])]++;
+        const total = w * h;
+
+        // Otsu threshold
+        let sumAll = 0;
+        for (let t = 0; t < 256; t++) sumAll += t * hist[t];
+        let sumBg = 0, wBg = 0, wFg = 0, maxVariance = 0, threshold = 128;
+        for (let t = 0; t < 256; t++) {
+            wBg += hist[t];
+            if (!wBg) continue;
+            wFg = total - wBg;
+            if (!wFg) break;
+            sumBg += t * hist[t];
+            const meanBg = sumBg / wBg;
+            const meanFg = (sumAll - sumBg) / wFg;
+            const variance = wBg * wFg * (meanBg - meanFg) * (meanBg - meanFg);
+            if (variance > maxVariance) { maxVariance = variance; threshold = t; }
+        }
+
+        for (let i = 0; i < px.length; i += 4) {
+            const v = px[i] > threshold ? 255 : 0;
+            px[i] = px[i + 1] = px[i + 2] = v;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        // ── 5. Sharpen (3×3 unsharp-mask convolution) ──
+        imageData = ctx.getImageData(0, 0, w, h);
+        const src = new Uint8ClampedArray(imageData.data);
+        const dst = imageData.data;
+        // kernel: center=5, neighbours=-1  (unsharp emphasis)
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+                const idx = (y * w + x) * 4;
+                const val = 5 * src[idx]
+                    - src[((y - 1) * w + x) * 4]
+                    - src[((y + 1) * w + x) * 4]
+                    - src[(y * w + x - 1) * 4]
+                    - src[(y * w + x + 1) * 4];
+                const clamped = Math.max(0, Math.min(255, val));
+                dst[idx] = dst[idx + 1] = dst[idx + 2] = clamped;
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        return canvas;
+    }
+
+    /**
+     * Preprocess an already-rendered canvas (e.g. from pdf.js).
+     * Applies grayscale → contrast → threshold → sharpen in-place.
+     */
+    function _preprocessForOCR_canvas(srcCanvas) {
+        const w = srcCanvas.width;
+        const h = srcCanvas.height;
+        const ctx = srcCanvas.getContext('2d', { willReadFrequently: true });
+
+        let imageData = ctx.getImageData(0, 0, w, h);
+        const px = imageData.data;
+
+        // Grayscale
+        for (let i = 0; i < px.length; i += 4) {
+            const gray = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+            px[i] = px[i + 1] = px[i + 2] = gray;
+        }
+        // Contrast stretch
+        let minV = 255, maxV = 0;
+        for (let i = 0; i < px.length; i += 4) {
+            if (px[i] < minV) minV = px[i];
+            if (px[i] > maxV) maxV = px[i];
+        }
+        const range = maxV - minV || 1;
+        for (let i = 0; i < px.length; i += 4) {
+            const v = ((px[i] - minV) / range) * 255;
+            px[i] = px[i + 1] = px[i + 2] = v;
+        }
+        // Otsu threshold
+        const hist = new Array(256).fill(0);
+        for (let i = 0; i < px.length; i += 4) hist[Math.round(px[i])]++;
+        const total = w * h;
+        let sumAll = 0;
+        for (let t = 0; t < 256; t++) sumAll += t * hist[t];
+        let sumBg = 0, wBg = 0, wFg = 0, maxVar = 0, thresh = 128;
+        for (let t = 0; t < 256; t++) {
+            wBg += hist[t]; if (!wBg) continue;
+            wFg = total - wBg; if (!wFg) break;
+            sumBg += t * hist[t];
+            const mB = sumBg / wBg, mF = (sumAll - sumBg) / wFg;
+            const v = wBg * wFg * (mB - mF) * (mB - mF);
+            if (v > maxVar) { maxVar = v; thresh = t; }
+        }
+        for (let i = 0; i < px.length; i += 4) {
+            const v = px[i] > thresh ? 255 : 0;
+            px[i] = px[i + 1] = px[i + 2] = v;
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        // Sharpen
+        imageData = ctx.getImageData(0, 0, w, h);
+        const src = new Uint8ClampedArray(imageData.data);
+        const dst = imageData.data;
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+                const idx = (y * w + x) * 4;
+                const val = 5 * src[idx]
+                    - src[((y - 1) * w + x) * 4]
+                    - src[((y + 1) * w + x) * 4]
+                    - src[(y * w + x - 1) * 4]
+                    - src[(y * w + x + 1) * 4];
+                const clamped = Math.max(0, Math.min(255, val));
+                dst[idx] = dst[idx + 1] = dst[idx + 2] = clamped;
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+        return srcCanvas;
     }
 
     async function runOCR(input) {
@@ -249,9 +441,64 @@ const PrescriptionVerifierModule = (() => {
                     }
                 }
             });
+            // Optimise Tesseract for printed prescription text
+            await _ocrWorker.setParameters({
+                tessedit_pageseg_mode: '6',      // assume single uniform block
+                preserve_interword_spaces: '1',  // keep spacing between words
+            });
         }
+
+        // If input is a canvas element, pass it directly
         const { data: { text } } = await _ocrWorker.recognize(input);
         return text.trim();
+    }
+
+    /**
+     * Post-process OCR output: fix common medical-text misreads,
+     * normalise whitespace, and correct frequent prescription artefacts.
+     */
+    function _postProcessOCR(raw) {
+        if (!raw) return '';
+        let t = raw;
+
+        // collapse stray line breaks inside sentences (but keep paragraph breaks)
+        t = t.replace(/([a-z,;])\n([a-z])/gi, '$1 $2');
+
+        // fix common OCR substitution errors in medical text
+        const fixes = [
+            [/\brng\b/gi,   'mg'],        // rng → mg
+            [/\bmg\b/gi,    'mg'],         // already correct — keep
+            [/\bm9\b/gi,    'mg'],         // m9 → mg
+            [/\bmcg\b/gi,   'mcg'],
+            [/\b0nce\b/gi,  'once'],       // 0nce → once
+            [/\b0ral\b/gi,  'oral'],       // 0ral → oral
+            [/\b1aily\b/gi, 'daily'],      // 1aily → daily
+            [/\bda1ly\b/gi, 'daily'],      // da1ly → daily
+            [/\btab1et/gi,  'tablet'],     // tab1et → tablet
+            [/\btabiet/gi,  'tablet'],     // tabiet → tablet
+            [/\bcapsu1e/gi, 'capsule'],    // capsu1e → capsule
+            [/\b1njection/gi, 'injection'],
+            [/\bprescri ption/gi, 'prescription'],
+            [/\bBlD\b/g,   'BID'],        // BID mis-reads
+            [/\bTlD\b/g,   'TID'],
+            [/\bQlD\b/g,   'QID'],
+            [/\bQ\.?D\.?\b/g, 'QD'],
+            [/\bP\.?O\.?\b/g, 'PO'],      // oral route
+            [/\bI\.?V\.?\b/g, 'IV'],
+            [/\bI\.?M\.?\b/g, 'IM'],
+            [/\bS\.?C\.?\b/g, 'SC'],
+            [/\bp\.?r\.?n\.?\b/gi, 'PRN'], // as needed
+        ];
+        for (const [pat, rep] of fixes) {
+            t = t.replace(pat, rep);
+        }
+
+        // normalise multiple spaces / tabs
+        t = t.replace(/[ \t]+/g, ' ');
+        // normalise multiple blank lines
+        t = t.replace(/\n{3,}/g, '\n\n');
+
+        return t.trim();
     }
 
     /* ───────────────── progress helpers ───────────────────────── */
@@ -727,24 +974,54 @@ const PrescriptionVerifierModule = (() => {
     function updateWarningsPanel(data) {
         const panel = document.getElementById('panel-warnings');
         if (!panel) return;
-        const alerts = [...(data.interaction_alerts || [])];
+
+        const bullets = [];
+
+        // 1. Interaction alerts — most critical for multi-drug prescriptions
+        const interactions = data.interaction_alerts || [];
+        interactions.forEach(a => {
+            if (a.drug_a && a.drug_b) {
+                const sev = (a.severity || '').toLowerCase();
+                const icon = sev === 'major' || sev === 'contraindicated' ? '⛔' : '⚠️';
+                let desc = a.description || '';
+                if (desc.length > 80) desc = desc.substring(0, 77) + '…';
+                bullets.push(`${icon} <strong>${a.drug_a} + ${a.drug_b}</strong> (${a.severity || 'warning'}): ${desc}`);
+            } else if (a.warning) {
+                bullets.push(`⚠️ ${a.warning}`);
+            }
+        });
+
+        // 2. Dosage concerns from AI analysis
         const ai = data.ai_analysis || {};
         if (ai.medication_analysis) {
             ai.medication_analysis.forEach(m => {
                 const dv = m.dosage_verdict || {};
                 if (dv.status && dv.status !== 'APPROPRIATE' && dv.status !== 'UNVERIFIABLE') {
-                    alerts.push({ warning: `${m.drug_name}: dosage ${dv.status.toLowerCase()}` });
+                    bullets.push(`💊 ${m.drug_name}: dosage ${dv.status.toLowerCase()}`);
                 }
             });
         }
-        if (!alerts.length) { panel.innerHTML = '<p class="placeholder">No active warnings.</p>'; return; }
-        panel.innerHTML = alerts.map(a => {
-            if (a.warning) return `<div style="margin-bottom:8px;font-size:12px;">⚠️ ${a.warning}</div>`;
-            return `<div style="margin-bottom:8px;font-size:12px;">
-                <strong>${a.drug_a || ''} ${a.drug_b ? '+ ' + a.drug_b : ''}</strong>
-                <span class="drug-tag">${a.severity || ''}</span>
+
+        // 3. Overall prescription concerns from AI
+        if (ai.overall_assessment) {
+            const oa = ai.overall_assessment;
+            if (oa.risk_level && oa.risk_level !== 'LOW') {
+                bullets.push(`🚨 Overall risk: ${oa.risk_level}`);
+            }
+        }
+
+        if (!bullets.length) {
+            panel.innerHTML = '<p class="placeholder">No active warnings for this prescription.</p>';
+            return;
+        }
+
+        panel.innerHTML = `
+            <div class="panel-warning-drug">
+                <div class="panel-warning-drug-name">Prescription Concerns</div>
+                <ul class="panel-warning-list">
+                    ${bullets.map(b => `<li>${b}</li>`).join('')}
+                </ul>
             </div>`;
-        }).join('');
     }
 
     return { render };

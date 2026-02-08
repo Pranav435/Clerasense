@@ -195,6 +195,7 @@ const ComparisonModule = (() => {
         }
 
         renderComparison(data, resultsEl);
+        _updateWarningsPanel(data);
     }
 
     /* ── Cached last comparison for re-render on currency change ── */
@@ -516,6 +517,68 @@ const ComparisonModule = (() => {
             <div class="text-full" style="display:none;">${fullHtml}</div>
             <button class="read-more-toggle" onclick="(function(el){var p=el.closest('.text-expandable');p.querySelector('.text-preview').style.display=p.querySelector('.text-preview').style.display==='none'?'':'none';p.querySelector('.text-full').style.display=p.querySelector('.text-full').style.display==='none'?'':'none';el.textContent=el.textContent==='Read more'?'Show less':'Read more';})(this)">Read more</button>
         </div>`;
+    }
+
+    /* ── Warnings panel for all compared drugs ── */
+    function _updateWarningsPanel(data) {
+        const panel = document.getElementById('panel-warnings');
+        if (!panel) return;
+
+        const drugs = data.comparison || [];
+        if (!drugs.length) {
+            panel.innerHTML = '<p class="placeholder">No warnings.</p>';
+            return;
+        }
+
+        let html = '';
+        drugs.forEach(drug => {
+            const bullets = _topWarnings(drug);
+            if (!bullets.length) return;
+            html += `<div class="panel-warning-drug">
+                <div class="panel-warning-drug-name">${drug.generic_name}</div>
+                <ul class="panel-warning-list">
+                    ${bullets.map(b => `<li>${b}</li>`).join('')}
+                </ul>
+            </div>`;
+        });
+
+        panel.innerHTML = html || '<p class="placeholder">No critical warnings.</p>';
+    }
+
+    function _topWarnings(drug) {
+        const bullets = [];
+        if (!drug.safety_warnings) return bullets;
+
+        for (const w of drug.safety_warnings) {
+            if (w.black_box_warnings && bullets.length < 3) {
+                bullets.push('⛔ ' + _shortW(w.black_box_warnings));
+            }
+            if (w.contraindications && bullets.length < 3) {
+                bullets.push('🚫 ' + _shortW(w.contraindications));
+            }
+            if (w.pregnancy_risk && bullets.length < 3) {
+                const p = (w.pregnancy_risk || '').toLowerCase();
+                if (p.includes('category d') || p.includes('category x') || p.includes('contraindicated')) {
+                    bullets.push('🤰 Pregnancy: Contraindicated or harmful');
+                }
+            }
+        }
+        if (drug.interactions && drug.interactions.length && bullets.length < 3) {
+            const major = drug.interactions.filter(ix => ix.severity === 'major' || ix.severity === 'contraindicated');
+            if (major.length) {
+                bullets.push('🔗 Major interactions: ' + major.slice(0, 2).map(ix => ix.interacting_drug).join(', '));
+            }
+        }
+        return bullets.slice(0, 3);
+    }
+
+    function _shortW(text) {
+        if (!text) return '';
+        let c = text.replace(/[■▪▐▓░▒█▬▮▯◼◾⬛⬜□▢]/g, '').trim();
+        c = c.replace(/^(ADVERSE REACTIONS|ADDITIONAL WARNINGS|WARNINGS):\s*/i, '');
+        const dot = c.indexOf('. ');
+        if (dot > 0 && dot < 120) c = c.substring(0, dot + 1);
+        return c.length > 100 ? c.substring(0, 97) + '…' : c;
     }
 
     return { render };

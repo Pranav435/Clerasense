@@ -12,7 +12,7 @@ const AskMoreModule = (() => {
             <div class="chat-container">
                 <div class="chat-header">
                     <h2>Ask More</h2>
-                    <p>Ask follow-up questions about drugs — pricing, interactions, comparisons, or anything else.
+                    <p>Ask any drug-related question in plain language.
                        All answers are sourced from verified regulatory data.</p>
                 </div>
                 <div class="disclaimer-banner">
@@ -22,7 +22,7 @@ const AskMoreModule = (() => {
                 <div class="chat-messages" id="chat-messages"></div>
                 <div class="chat-input-area">
                     <input type="text" id="chat-input"
-                           placeholder="e.g., What is the price of Metformin? Compare Lisinopril vs Losartan."
+                           placeholder="Ask anything about a drug — e.g., &quot;Tell me about Metformin&quot;"
                            autocomplete="off">
                     <button id="chat-send" class="btn btn-primary" style="width:auto;">Send</button>
                 </div>
@@ -108,10 +108,12 @@ const AskMoreModule = (() => {
             container.innerHTML = `
                 <div class="empty-state">
                     <h3>Ask More — Drug Intelligence Chatbot</h3>
-                    <p>Ask follow-up questions about drug pricing, comparisons, interactions,
-                       dosage adjustments, or any pharmacy-related query.</p>
+                    <p>Ask questions about medications in natural language.
+                       I can help with drug details, interactions, dosages, safety profiles,
+                       pricing, and comparisons.</p>
                     <p style="margin-top:12px;font-size:12px;color:var(--text-muted);">
-                        Examples: "What is the cost of Atorvastatin?"  •  "Compare Metformin vs Glipizide"
+                        Try: "Tell me about Atorvastatin" &bull; "What are the side effects of Metformin?"
+                        &bull; "Compare Lisinopril vs Losartan" &bull; "Is it safe to combine aspirin and ibuprofen?"
                     </p>
                 </div>
             `;

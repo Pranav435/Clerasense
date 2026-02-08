@@ -134,6 +134,13 @@ const App = (() => {
     function renderModule(name) {
         currentModule = name;
         const container = document.getElementById('content-area');
+
+        // Reset right-panel sections on module switch
+        const srcPanel = document.getElementById('panel-sources');
+        const warnPanel = document.getElementById('panel-warnings');
+        if (srcPanel) srcPanel.innerHTML = '<p class="placeholder">Sources will appear here when you query drug information.</p>';
+        if (warnPanel) warnPanel.innerHTML = '<p class="placeholder">Safety warnings will appear here.</p>';
+
         const mod = modules[name];
         if (mod) {
             mod.render(container);

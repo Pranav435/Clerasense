@@ -6,6 +6,7 @@ using AI analysis and verified drug safety data.
 This is an INFORMATION tool — NOT a clinical approval system.
 """
 
+import concurrent.futures
 import json
 import logging
 from openai import OpenAI
@@ -295,14 +296,15 @@ def _run_ai_verification(extracted: dict, drug_info: dict, interaction_alerts: l
 
 def verify_prescription(ocr_text: str) -> dict:
     """
-    Full prescription verification pipeline.
+    Full prescription verification pipeline (optimised for speed).
+
     1. Extract structured data from OCR text (via AI).
-    2. Look up drugs in the verified database.
-    3. Gather safety warnings, interactions, dosage guidelines.
+    2. Look up drugs in the verified database (parallel ingestion for missing).
+    3. Gather safety warnings, interactions, dosage guidelines — concurrently.
     4. Run AI-powered comprehensive verification.
     5. Return combined result.
     """
-    # Step 1: Extract structured data from OCR text
+    # ── Step 1: Extract structured data from OCR text ──────────────
     extracted = extract_prescription_data(ocr_text)
     if extracted.get("error"):
         return {"error": f"Could not parse prescription: {extracted['error']}"}
@@ -314,20 +316,26 @@ def verify_prescription(ocr_text: str) -> dict:
             "extracted_data": extracted,
         }
 
-    # Step 2: Look up drugs in database
+    # ── Step 2: Look up drugs (parallel ingestion for unknowns) ────
     drug_names = [m["drug_name"] for m in medications if m.get("drug_name")]
     drugs_found, not_found = lookup_drugs(drug_names)
 
-    # Step 3: Gather comprehensive drug info from DB
-    drug_info = _build_drug_context(drugs_found)
-    interaction_alerts = _collect_interaction_alerts(drugs_found)
-    safety_warnings = _collect_safety_warnings(drugs_found)
-    dosage_guidelines = _collect_dosage_guidelines(drugs_found)
+    # ── Step 3: Gather DB data concurrently ────────────────────────
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        f_ctx   = pool.submit(_build_drug_context, drugs_found)
+        f_inter = pool.submit(_collect_interaction_alerts, drugs_found)
+        f_warn  = pool.submit(_collect_safety_warnings, drugs_found)
+        f_dose  = pool.submit(_collect_dosage_guidelines, drugs_found)
 
-    # Step 4: AI-powered comprehensive verification
+        drug_info           = f_ctx.result()
+        interaction_alerts  = f_inter.result()
+        safety_warnings     = f_warn.result()
+        dosage_guidelines   = f_dose.result()
+
+    # ── Step 4: AI-powered comprehensive verification ──────────────
     ai_analysis = _run_ai_verification(extracted, drug_info, interaction_alerts)
 
-    # Step 5: Combine everything into the response
+    # ── Step 5: Combine result ─────────────────────────────────────
     return {
         "extracted_data": extracted,
         "drugs_found": [d.generic_name for d in drugs_found],

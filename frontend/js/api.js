@@ -53,7 +53,9 @@ const API = (() => {
 
             const data = await response.json();
 
-            if (response.status === 401) {
+            // Handle 401 – but NOT on auth endpoints (login/register return
+            // 401 for invalid credentials, which is NOT a session-expired event)
+            if (response.status === 401 && !endpoint.startsWith('/auth/')) {
                 clearToken();
                 window.location.reload();
                 return { error: 'Session expired. Please log in again.' };
